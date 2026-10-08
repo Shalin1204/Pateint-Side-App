@@ -1,6 +1,7 @@
 import React from 'react';
 import { CoordinationCard as CoordinationCardModel, CoordinationCardStatus } from '../../types';
-import { Clock, CheckCircle2, AlertCircle, MessageSquareQuote, ShieldAlert } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, MessageSquareQuote } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface CoordinationCardProps {
   card: CoordinationCardModel;
@@ -8,114 +9,165 @@ interface CoordinationCardProps {
   isCaregiver?: boolean;
 }
 
-export const CoordinationCard: React.FC<CoordinationCardProps> = ({
-  card,
-  onUpdateStatus,
-  isCaregiver,
-}) => {
+export const CoordinationCard: React.FC<CoordinationCardProps> = ({ card, onUpdateStatus, isCaregiver }) => {
+  const { theme } = useAuth();
+  const isLight = theme === 'light';
+
+  /* ── Type badge styles ── */
   const getTypeBadge = (type: CoordinationCardModel['type']) => {
-    switch (type) {
-      case 'medication-delay':
-        return { label: 'Medication Delay', color: 'text-amber-400 bg-amber-950/70 border-amber-800' };
-      case 'appointment-question':
-        return { label: 'Appointment Inquiry', color: 'text-blue-400 bg-blue-950/70 border-blue-800' };
-      case 'test-delay':
-        return { label: 'Diagnostic Test Delay', color: 'text-purple-400 bg-purple-950/70 border-purple-800' };
-      case 'symptom-report':
-        return { label: 'Symptom Clinical Report', color: 'text-rose-400 bg-rose-950/70 border-rose-800' };
-      case 'unclear-instruction':
-        return { label: 'Instruction Clarification', color: 'text-teal-400 bg-teal-950/70 border-teal-800' };
-      case 'general-review':
-      default:
-        return { label: 'Care Team Review', color: 'text-slate-300 bg-slate-800 border-slate-700' };
+    if (isLight) {
+      switch (type) {
+        case 'medication-delay':
+          return { label: 'Medication Delay',         style: { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#7A4F00' } };
+        case 'appointment-question':
+          return { label: 'Appointment Inquiry',      style: { backgroundColor: '#E8F3FC', border: '1px solid #B8D4EA', color: '#1E4D78' } };
+        case 'test-delay':
+          return { label: 'Diagnostic Test Delay',    style: { backgroundColor: '#F3EEFF', border: '1px solid #D4B8F0', color: '#5B21B6' } };
+        case 'symptom-report':
+          return { label: 'Symptom Clinical Report',  style: { backgroundColor: '#FDE8E8', border: '1px solid #F5B8B8', color: '#9B1C1C' } };
+        case 'unclear-instruction':
+          return { label: 'Instruction Clarification',style: { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' } };
+        default:
+          return { label: 'Care Team Review',          style: { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' } };
+      }
+    } else {
+      switch (type) {
+        case 'medication-delay':      return { label: 'Medication Delay',          style: { backgroundColor: 'rgba(120,53,15,0.7)', border: '1px solid rgba(146,64,14,0.8)', color: '#fbbf24' } };
+        case 'appointment-question':  return { label: 'Appointment Inquiry',       style: { backgroundColor: 'rgba(30,58,138,0.7)', border: '1px solid rgba(30,64,175,0.8)', color: '#60a5fa' } };
+        case 'test-delay':            return { label: 'Diagnostic Test Delay',     style: { backgroundColor: 'rgba(88,28,135,0.7)', border: '1px solid rgba(109,40,217,0.8)', color: '#c084fc' } };
+        case 'symptom-report':        return { label: 'Symptom Clinical Report',   style: { backgroundColor: 'rgba(136,19,55,0.7)', border: '1px solid rgba(159,18,57,0.8)', color: '#fb7185' } };
+        case 'unclear-instruction':   return { label: 'Instruction Clarification', style: { backgroundColor: 'rgba(19,78,74,0.7)', border: '1px solid rgba(20,184,166,0.4)', color: '#2dd4bf' } };
+        default:                      return { label: 'Care Team Review',           style: { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' } };
+      }
     }
   };
 
-  const typeInfo = getTypeBadge(card.type);
-
+  /* ── Status badge ── */
   const renderStatus = () => {
     switch (card.status) {
       case 'resolved':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-950 border border-emerald-700 text-emerald-300">
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+            style={isLight
+              ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
+              : { backgroundColor: 'rgba(6,78,59,0.8)', border: '1px solid rgba(4,120,87,0.8)', color: '#6ee7b7' }}>
+            <CheckCircle2 className="w-3 h-3" />
             <span>Resolved</span>
           </span>
         );
       case 'acknowledged':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-950 border border-blue-700 text-blue-300">
-            <Clock className="w-3 h-3 text-blue-400" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+            style={isLight
+              ? { backgroundColor: '#E8F3FC', border: '1px solid #B8D4EA', color: '#2B5F8A' }
+              : { backgroundColor: 'rgba(30,58,138,0.8)', border: '1px solid rgba(37,99,235,0.7)', color: '#93c5fd' }}>
+            <Clock className="w-3 h-3" />
             <span>Acknowledged</span>
           </span>
         );
-      case 'needs-review':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-950 border border-amber-700 text-amber-300">
-            <AlertCircle className="w-3 h-3 text-amber-400" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"
+            style={isLight
+              ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }
+              : { backgroundColor: 'rgba(120,53,15,0.8)', border: '1px solid rgba(146,64,14,0.8)', color: '#fbbf24' }}>
+            <AlertCircle className="w-3 h-3" />
             <span>Needs Review</span>
           </span>
         );
     }
   };
 
+  const typeInfo = getTypeBadge(card.type);
+
   const formattedDate = new Date(card.createdAt).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 
+  const cardStyle: React.CSSProperties = isLight
+    ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', boxShadow: '0 1px 4px rgba(24,50,74,0.07)' }
+    : { backgroundColor: '#0f172a', border: '1px solid rgba(20,184,166,0.2)' };
+
+  const divider: React.CSSProperties = { borderColor: isLight ? '#C5DCE8' : 'rgba(30,41,59,0.8)' };
+
   return (
-    <div className="rounded-2xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100 transition-all">
-      {/* Header */}
+    <div className="rounded-2xl p-4 shadow-sm transition-all" style={cardStyle}>
+
+      {/* Header: type badge + status */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${typeInfo.color}`}>
+        <span
+          className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+          style={typeInfo.style}
+        >
           {typeInfo.label}
         </span>
         {renderStatus()}
       </div>
 
-      {/* Description / Content */}
+      {/* Quote / Description */}
       <div className="flex items-start gap-2.5 my-2.5 text-xs">
-        <MessageSquareQuote className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-        <p className="text-slate-200 leading-relaxed font-medium">"{card.description}"</p>
+        <MessageSquareQuote
+          className="w-4 h-4 shrink-0 mt-0.5"
+          style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}
+        />
+        <p className="leading-relaxed font-medium" style={isLight ? { color: '#18324A' } : { color: '#e2e8f0' }}>
+          "{card.description}"
+        </p>
       </div>
 
-      {/* Metadata */}
-      <div className="pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-        <div>
-          <span>Raised by: </span>
-          <strong className="text-slate-300">{card.raisedByName}</strong>
+      {/* Metadata row */}
+      <div
+        className="pt-2.5 border-t flex items-center justify-between text-[11px]"
+        style={{ ...divider, borderTopWidth: '1px', borderTopStyle: 'solid' }}
+      >
+        <div style={isLight ? { color: '#587084' } : { color: '#64748b' }}>
+          Raised by:{' '}
+          <strong style={isLight ? { color: '#18324A' } : { color: '#cbd5e1' }}>{card.raisedByName}</strong>
         </div>
-        <span className="font-mono">{formattedDate}</span>
+        <span className="font-mono" style={isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}>
+          {formattedDate}
+        </span>
       </div>
 
-      {/* Doctor / Care Team Notes if available */}
+      {/* Care team response block */}
       {card.careTeamNotes && (
-        <div className="mt-3 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-teal-300">
-          <div className="font-bold text-[10px] uppercase tracking-wider text-teal-400 mb-0.5">
+        <div
+          className="mt-3 p-2.5 rounded-xl text-[11px]"
+          style={isLight
+            ? { backgroundColor: 'rgba(0,175,163,0.08)', border: '1px solid #A8D9D5' }
+            : { backgroundColor: 'rgba(2,8,23,1)', border: '1px solid rgba(30,41,59,1)' }}
+        >
+          <div className="font-bold text-[10px] uppercase tracking-wider mb-0.5"
+            style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}>
             Care Team Response
           </div>
-          <p className="leading-relaxed">{card.careTeamNotes}</p>
+          <p className="leading-relaxed" style={isLight ? { color: '#18324A' } : { color: '#5eead4' }}>
+            {card.careTeamNotes}
+          </p>
         </div>
       )}
 
-      {/* Caregiver simulation action buttons if needed */}
+      {/* Caregiver action buttons */}
       {isCaregiver && onUpdateStatus && card.status !== 'resolved' && (
-        <div className="mt-3 pt-2 border-t border-slate-800 flex justify-end gap-2">
+        <div
+          className="mt-3 pt-2 border-t flex justify-end gap-2"
+          style={{ borderColor: isLight ? '#C5DCE8' : 'rgba(30,41,59,0.8)' }}
+        >
           {card.status === 'needs-review' && (
             <button
               onClick={() => onUpdateStatus('acknowledged')}
-              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 transition"
+              className="px-2.5 py-1 rounded-lg text-xs transition"
+              style={isLight
+                ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }
+                : { backgroundColor: '#1e293b', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' }}
             >
               Simulate Team Acknowledge
             </button>
           )}
           <button
             onClick={() => onUpdateStatus('resolved')}
-            className="px-2.5 py-1 rounded-lg bg-teal-700 hover:bg-teal-600 text-xs text-white font-medium transition"
+            className="px-2.5 py-1 rounded-lg text-xs font-medium text-white transition"
+            style={{ backgroundColor: '#00AFA3' }}
           >
             Mark Resolved
           </button>

@@ -9,6 +9,8 @@ import {
   SubRoute,
 } from '../types';
 
+export type AppTheme = 'dark' | 'light';
+
 interface AuthContextType {
   currentUser: UserProfile;
   patientContext: PatientContext;
@@ -26,6 +28,8 @@ interface AuthContextType {
   canSeeTab: (tab: ActiveTab) => boolean;
   canSeeSubRoute: (route: SubRoute) => boolean;
   refreshData: () => void;
+  theme: AppTheme;
+  setTheme: (t: AppTheme) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -39,6 +43,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
   const [, setDbVersion] = useState<number>(0);
+  const [theme, setThemeState] = useState<AppTheme>(
+    () => (localStorage.getItem('cp_theme') as AppTheme) || 'dark'
+  );
+
+  const setTheme = useCallback((t: AppTheme) => {
+    setThemeState(t);
+    localStorage.setItem('cp_theme', t);
+  }, []);
 
   // Synchronize route state with browser URL path and history
   useEffect(() => {
@@ -267,6 +279,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canSeeTab,
         canSeeSubRoute,
         refreshData,
+        theme,
+        setTheme,
       }}
     >
       {children}

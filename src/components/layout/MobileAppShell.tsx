@@ -16,7 +16,7 @@ import { SettingsView } from '../../views/SettingsView';
 import { PrintView } from '../../views/PrintView';
 
 export const MobileAppShell: React.FC = () => {
-  const { activeTab, activeSubRoute } = useAuth();
+  const { activeTab, activeSubRoute, theme } = useAuth();
 
   // Scroll to top on view changes
   useEffect(() => {
@@ -62,13 +62,24 @@ export const MobileAppShell: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] w-full bg-slate-950 flex justify-center selection:bg-teal-500 selection:text-white">
+    <div
+      data-theme={theme}
+      className="min-h-[100dvh] w-full flex justify-center selection:bg-teal-500 selection:text-white transition-colors duration-300"
+      style={{ backgroundColor: 'var(--cp-bg)' }}
+    >
       {/* Mobile App Viewport Canvas: 375px–430px target, 320px min, 768px tablet support */}
-      <div className="w-full max-w-md min-h-[100dvh] flex flex-col bg-slate-950 border-x border-slate-900 relative shadow-2xl overflow-x-hidden">
+      <div
+        className="w-full max-w-md min-h-[100dvh] flex flex-col border-x relative shadow-2xl overflow-x-hidden transition-colors duration-300"
+        style={{
+          backgroundColor: 'var(--cp-bg)',
+          borderColor: 'var(--cp-border)',
+          boxShadow: 'var(--cp-shadow-lg)',
+        }}
+      >
         {/* Offline indicator banner */}
         <OfflineBanner />
 
-        {/* Top Navigation Bar with RoleSwitcher, language toggle, and warning icon */}
+        {/* Top Navigation Bar */}
         <TopAppBar />
 
         {/* Scrollable Viewport Content Area */}
@@ -76,13 +87,15 @@ export const MobileAppShell: React.FC = () => {
           id="main-content"
           role="main"
           className="flex-1 px-4 pt-3 pb-20 overflow-y-auto no-scrollbar"
+          style={{ color: 'var(--cp-text)' }}
         >
           {renderActiveRoute()}
         </main>
 
-        {/* Bottom Navigation Tab Bar (Maximum 5 tabs, permissions filtered) */}
+        {/* Bottom Navigation Tab Bar */}
         <BottomTabBar />
       </div>
     </div>
   );
 };
+

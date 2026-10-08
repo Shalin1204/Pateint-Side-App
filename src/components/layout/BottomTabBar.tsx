@@ -27,7 +27,11 @@ export const BottomTabBar: React.FC = () => {
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-teal-900/50 pb-safe shadow-lg no-print"
+      className="fixed bottom-0 left-0 right-0 z-40 backdrop-blur-md border-t pb-safe shadow-lg no-print transition-colors duration-300"
+      style={{
+        backgroundColor: 'var(--cp-tab-bg)',
+        borderColor: 'var(--cp-tab-border)',
+      }}
     >
       <div className="max-w-lg mx-auto grid grid-flow-col auto-cols-fr items-center h-16 px-1">
         {visibleTabs.map((tab) => {
@@ -39,18 +43,19 @@ export const BottomTabBar: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               aria-label={t(language, tab.labelKey)}
-              className={`flex flex-col items-center justify-center min-h-[44px] py-1 transition-all active:scale-95 ${
-                isActive ? 'text-teal-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
-              }`}
+              className="flex flex-col items-center justify-center min-h-[44px] py-1 transition-all active:scale-95"
+              style={{ color: isActive ? 'var(--cp-primary)' : 'var(--cp-text-subtle)' }}
             >
               <div
-                className={`p-1.5 rounded-xl transition-colors ${
-                  isActive ? 'bg-teal-500/15 text-teal-300' : 'text-slate-400'
-                }`}
+                className="p-1.5 rounded-xl transition-colors"
+                style={{
+                  backgroundColor: isActive ? 'var(--cp-primary-dim)' : 'transparent',
+                  color: isActive ? 'var(--cp-accent)' : 'var(--cp-text-subtle)',
+                }}
               >
                 <Icon className="w-5 h-5" />
               </div>
-              <span className="text-[11px] leading-tight tracking-tight mt-0.5">
+              <span className="text-[11px] leading-tight tracking-tight mt-0.5 font-medium">
                 {t(language, tab.labelKey)}
               </span>
             </button>

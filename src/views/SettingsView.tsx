@@ -5,34 +5,19 @@ import { Language } from '../types';
 import { t } from '../i18n/translations';
 import { PWAInstallButton } from '../components/pwa/PWAInstallButton';
 import {
-  ArrowLeft,
-  Globe,
-  Users,
-  Shield,
-  Check,
-  X,
-  UserCheck,
-  Download,
-  RotateCcw,
+  ArrowLeft, Globe, Users, Check, X, UserCheck,
+  Download, RotateCcw, Moon, Sun,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const {
-    currentUser,
-    patientContext,
-    language,
-    setLanguage,
-    setActiveSubRoute,
-    refreshData,
-    switchPersona,
+    currentUser, patientContext, language, setLanguage,
+    setActiveSubRoute, refreshData, switchPersona, theme, setTheme,
   } = useAuth();
+  const isLight = theme === 'light';
 
   const isPatientOwner = currentUser.role === 'patient';
-
-  const accessRequests = useMemo(() => {
-    return db.getAccessRequests();
-  }, []);
-
+  const accessRequests = useMemo(() => db.getAccessRequests(), []);
   const pendingRequests = accessRequests.filter((r) => r.status === 'pending');
 
   const handleDecideRequest = (requestId: string, decision: 'approved' | 'denied') => {
@@ -45,106 +30,164 @@ export const SettingsView: React.FC = () => {
     refreshData();
   };
 
+  /* ── shared style helpers ── */
+  const card: React.CSSProperties = isLight
+    ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', boxShadow: '0 1px 4px rgba(24,50,74,0.07)' }
+    : { backgroundColor: '#0f172a', border: '1px solid rgba(20,184,166,0.15)' };
+
+  const subCell: React.CSSProperties = isLight
+    ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8' }
+    : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(30,41,59,0.8)' };
+
+  const hd: React.CSSProperties  = isLight ? { color: '#18324A' } : { color: '#ffffff' };
+  const md: React.CSSProperties  = isLight ? { color: '#587084' } : { color: '#94a3b8' };
+  const acc: React.CSSProperties = isLight ? { color: '#007A73' } : { color: '#2dd4bf' };
+  const div: React.CSSProperties = { borderColor: isLight ? '#C5DCE8' : 'rgba(30,41,59,0.8)' };
+
+  const backBtn: React.CSSProperties = isLight
+    ? { backgroundColor: '#D4EEF7', border: '1px solid #C5DCE8', color: '#18324A' }
+    : { backgroundColor: '#1e293b', color: '#cbd5e1' };
+
   return (
     <div className="space-y-5 pb-8 animate-in fade-in duration-200">
-      {/* Top Header */}
+
+      {/* Header */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setActiveSubRoute(null)}
           aria-label="Back"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:text-white"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition"
+          style={backBtn}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">
-            {t(language, 'settings')}
-          </h1>
-          <p className="text-xs text-teal-300/80">Preferences & account access controls</p>
+          <h1 className="text-lg font-bold tracking-tight" style={hd}>{t(language, 'settings')}</h1>
+          <p className="text-xs" style={acc}>Preferences & account access controls</p>
         </div>
       </div>
 
-      {/* Active User Persona Switcher Section */}
-      <div className="rounded-3xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100 space-y-3">
+      {/* Persona switcher */}
+      <div className="rounded-3xl p-4 shadow-sm space-y-3" style={card}>
         <div className="flex items-center gap-2">
-          <UserCheck className="w-4 h-4 text-teal-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-teal-300">
-            Active App Persona
-          </h2>
+          <UserCheck className="w-4 h-4" style={acc} />
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>Active App Persona</h2>
         </div>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { id: 'usr_patient_lakshmi', initials: 'LD', name: 'Lakshmi Devi', role: 'Patient Mode', teal: true },
+            { id: 'usr_caregiver_ramesh', initials: 'RK', name: 'Ramesh Kumar', role: 'Caregiver Mode', teal: false },
+          ].map((p) => {
+            const isActive = currentUser.id === p.id;
+            return (
+              <button
+                key={p.id}
+                onClick={() => switchPersona(p.id as any)}
+                className="p-3 rounded-2xl border text-left transition flex flex-col justify-between"
+                style={isActive
+                  ? p.teal
+                    ? isLight
+                      ? { backgroundColor: 'rgba(0,175,163,0.10)', border: '1px solid #00AFA3' }
+                      : { backgroundColor: 'rgba(19,78,74,0.9)', border: '1px solid #0d9488' }
+                    : isLight
+                      ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A' }
+                      : { backgroundColor: 'rgba(120,53,15,0.9)', border: '1px solid rgba(146,64,14,1)' }
+                  : isLight
+                    ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8' }
+                    : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(30,41,59,0.8)' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={p.teal
+                      ? isLight
+                        ? { backgroundColor: 'rgba(0,175,163,0.15)', color: '#007A73' }
+                        : { backgroundColor: 'rgba(19,78,74,0.6)', color: '#5eead4' }
+                      : isLight
+                        ? { backgroundColor: '#FFF5D9', color: '#C58A00' }
+                        : { backgroundColor: 'rgba(120,53,15,0.6)', color: '#fcd34d' }}
+                  >
+                    {p.initials}
+                  </span>
+                  {isActive && (
+                    <Check className="w-4 h-4" style={p.teal
+                      ? isLight ? { color: '#007A73' } : { color: '#2dd4bf' }
+                      : isLight ? { color: '#C58A00' } : { color: '#fbbf24' }} />
+                  )}
+                </div>
+                <div>
+                  <div className="text-xs font-bold" style={hd}>{p.name}</div>
+                  <div className="text-[11px]" style={p.teal
+                    ? isLight ? { color: '#007A73' } : { color: 'rgba(94,234,212,0.8)' }
+                    : isLight ? { color: '#C58A00' } : { color: 'rgba(252,211,77,0.8)' }}
+                  >
+                    {p.role}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
+      {/* Theme toggle */}
+      <div className="rounded-3xl p-4 shadow-sm space-y-3" style={card}>
+        <div className="flex items-center gap-2">
+          {isLight ? <Sun className="w-4 h-4" style={acc} /> : <Moon className="w-4 h-4" style={acc} />}
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>Appearance</h2>
+        </div>
+        <p className="text-xs leading-relaxed" style={md}>
+          Choose your preferred colour theme. Light mode uses the Clinical Mint palette.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => switchPersona('usr_patient_lakshmi')}
-            className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
-              currentUser.id === 'usr_patient_lakshmi'
-                ? 'bg-teal-950/90 border-teal-500 text-white shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            }`}
+            onClick={() => setTheme('dark')}
+            className="min-h-[64px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all"
+            style={theme === 'dark'
+              ? { backgroundColor: 'rgba(20,184,166,0.12)', border: '2px solid #14b8a6', color: '#2dd4bf' }
+              : isLight
+                ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#587084' }
+                : { backgroundColor: '#0f172a', border: '1px solid rgba(30,41,59,0.8)', color: '#64748b' }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="w-7 h-7 rounded-full bg-teal-800/60 text-teal-200 flex items-center justify-center text-xs font-bold">
-                LD
-              </span>
-              {currentUser.id === 'usr_patient_lakshmi' && (
-                <Check className="w-4 h-4 text-teal-400" />
-              )}
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white">Lakshmi Devi</div>
-              <div className="text-[11px] text-teal-300/80">Patient Mode</div>
-            </div>
+            <Moon className="w-5 h-5" />
+            <span className="text-xs font-semibold">Dark</span>
           </button>
-
           <button
-            onClick={() => switchPersona('usr_caregiver_ramesh')}
-            className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
-              currentUser.id === 'usr_caregiver_ramesh'
-                ? 'bg-amber-950/90 border-amber-500 text-white shadow-sm'
-                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-            }`}
+            onClick={() => setTheme('light')}
+            className="min-h-[64px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all"
+            style={theme === 'light'
+              ? { backgroundColor: 'rgba(0,175,163,0.10)', border: '2px solid #00AFA3', color: '#007A73' }
+              : { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="w-7 h-7 rounded-full bg-amber-800/60 text-amber-200 flex items-center justify-center text-xs font-bold">
-                RK
-              </span>
-              {currentUser.id === 'usr_caregiver_ramesh' && (
-                <Check className="w-4 h-4 text-amber-400" />
-              )}
-            </div>
-            <div>
-              <div className="text-xs font-bold text-white">Ramesh Kumar</div>
-              <div className="text-[11px] text-amber-300/80">Caregiver Mode</div>
-            </div>
+            <Sun className="w-5 h-5" />
+            <span className="text-xs font-semibold">Light</span>
           </button>
         </div>
       </div>
 
-      {/* Language Selector Section */}
-      <div className="rounded-3xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100">
+      {/* Language selector */}
+      <div className="rounded-3xl p-4 shadow-sm" style={card}>
         <div className="flex items-center gap-2 mb-3">
-          <Globe className="w-4 h-4 text-teal-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-teal-300">
+          <Globe className="w-4 h-4" style={acc} />
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
             {t(language, 'preferred_language')}
           </h2>
         </div>
-
         <div className="grid grid-cols-3 gap-2">
-          {(
-            [
-              { code: 'en', label: 'English', script: 'English' },
-              { code: 'hi', label: 'हिंदी', script: 'Hindi' },
-              { code: 'ta', label: 'தமிழ்', script: 'Tamil' },
-            ] as const
-          ).map((l) => (
+          {([
+            { code: 'en', label: 'English', script: 'English' },
+            { code: 'hi', label: 'हिंदी', script: 'Hindi' },
+            { code: 'ta', label: 'தமிழ்', script: 'Tamil' },
+          ] as const).map((l) => (
             <button
               key={l.code}
               onClick={() => setLanguage(l.code)}
-              className={`min-h-[44px] rounded-xl text-xs font-semibold flex flex-col items-center justify-center transition border ${
-                language === l.code
-                  ? 'bg-teal-600 border-teal-500 text-white shadow-sm'
-                  : 'bg-slate-950 border-slate-800 text-slate-300 hover:text-white'
-              }`}
+              className="min-h-[44px] rounded-xl text-xs font-semibold flex flex-col items-center justify-center transition border"
+              style={language === l.code
+                ? { backgroundColor: '#00AFA3', borderColor: '#00AFA3', color: '#ffffff' }
+                : isLight
+                  ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#587084' }
+                  : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(30,41,59,0.8)', color: '#94a3b8' }}
             >
               <span className="font-bold">{l.label}</span>
               <span className="text-[10px] opacity-75">{l.script}</span>
@@ -153,81 +196,87 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Caregiver Access Control Section */}
-      <div className="rounded-3xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100">
+      {/* Caregiver access control */}
+      <div className="rounded-3xl p-4 shadow-sm" style={card}>
         <div className="flex items-center gap-2 mb-2">
-          <Users className="w-4 h-4 text-teal-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-teal-300">
+          <Users className="w-4 h-4" style={acc} />
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
             {t(language, 'caregiver_access')}
           </h2>
         </div>
-
-        <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+        <p className="text-xs mb-4 leading-relaxed" style={md}>
           {t(language, 'caregiver_access_desc')}
         </p>
 
         {isPatientOwner ? (
           <div className="space-y-4">
-            {/* Linked Caregiver list */}
-            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+            <div className="p-3.5 rounded-2xl" style={subCell}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-amber-950 border border-amber-800 flex items-center justify-center text-amber-300 text-xs font-bold">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                    style={isLight
+                      ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }
+                      : { backgroundColor: 'rgba(120,53,15,0.5)', border: '1px solid rgba(120,53,15,0.8)', color: '#fcd34d' }}
+                  >
                     RK
                   </div>
                   <div>
-                    <div className="text-xs font-bold text-white">Ramesh Kumar</div>
-                    <div className="text-[11px] text-slate-400">Son · Linked Caregiver</div>
+                    <div className="text-xs font-bold" style={hd}>Ramesh Kumar</div>
+                    <div className="text-[11px]" style={md}>Son · Linked Caregiver</div>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 text-emerald-300 text-[10px] font-semibold">
+                <span
+                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                  style={isLight
+                    ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
+                    : { backgroundColor: 'rgba(6,78,59,0.5)', border: '1px solid rgba(4,120,87,0.8)', color: '#6ee7b7' }}
+                >
                   Active
                 </span>
               </div>
 
-              {/* Permission Toggle: Allow Caregiver to Mark Done */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-800/80">
-                <span className="text-xs text-slate-300 pr-2">
-                  {t(language, 'can_mark_done_toggle')}
-                </span>
+              <div className="flex items-center justify-between pt-3 border-t" style={div}>
+                <span className="text-xs pr-2" style={md}>{t(language, 'can_mark_done_toggle')}</span>
                 <input
                   type="checkbox"
                   checked={patientContext.canMarkDone}
                   onChange={(e) => handleToggleCaregiverMarkDone(e.target.checked)}
-                  className="w-5 h-5 accent-teal-600 rounded cursor-pointer"
+                  className="w-5 h-5 rounded cursor-pointer"
+                  style={{ accentColor: '#00AFA3' }}
                 />
               </div>
             </div>
 
-            {/* Pending Access Requests */}
             {pendingRequests.length > 0 && (
               <div className="pt-2">
-                <div className="text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
+                <div className="text-xs font-bold uppercase tracking-wider mb-2" style={isLight ? { color: '#C58A00' } : { color: '#fbbf24' }}>
                   {t(language, 'pending_access_requests')}
                 </div>
                 {pendingRequests.map((req) => (
-                  <div
-                    key={req.id}
-                    className="p-3.5 rounded-2xl bg-slate-950 border border-amber-900/60"
-                  >
+                  <div key={req.id} className="p-3.5 rounded-2xl" style={isLight
+                    ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A' }
+                    : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(120,53,15,0.6)' }}>
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <div className="text-xs font-bold text-white">{req.caregiver_name}</div>
-                        <div className="text-[11px] text-slate-400">
-                          {req.relationship} ({req.caregiver_email})
-                        </div>
+                        <div className="text-xs font-bold" style={hd}>{req.caregiver_name}</div>
+                        <div className="text-[11px]" style={md}>{req.relationship} ({req.caregiver_email})</div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <button
                         onClick={() => handleDecideRequest(req.id, 'denied')}
-                        className="min-h-[40px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                        className="min-h-[40px] rounded-xl text-xs font-semibold transition"
+                        style={isLight
+                          ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }
+                          : { backgroundColor: '#1e293b', color: '#94a3b8' }}
                       >
                         {t(language, 'deny')}
                       </button>
                       <button
                         onClick={() => handleDecideRequest(req.id, 'approved')}
-                        className="min-h-[40px] rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold shadow-sm"
+                        className="min-h-[40px] rounded-xl text-xs font-semibold text-white transition"
+                        style={{ backgroundColor: '#00AFA3' }}
                       >
                         {t(language, 'approve')}
                       </button>
@@ -238,46 +287,39 @@ export const SettingsView: React.FC = () => {
             )}
           </div>
         ) : (
-          /* Caregiver read-only view of permissions */
-          <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-xs text-slate-300 space-y-2">
-            <div className="font-semibold text-white">Your Caregiver Permissions:</div>
-            <div className="flex items-center justify-between py-1 border-b border-slate-900">
-              <span>View daily tasks & plan:</span>
-              <span className="text-emerald-400 font-semibold">Enabled</span>
-            </div>
-            <div className="flex items-center justify-between py-1 border-b border-slate-900">
-              <span>Log medicine check-ins:</span>
-              <span className="text-emerald-400 font-semibold">Enabled</span>
-            </div>
-            <div className="flex items-center justify-between py-1">
-              <span>Mark items completed:</span>
-              <span
-                className={`font-semibold ${
-                  patientContext.canMarkDone ? 'text-emerald-400' : 'text-slate-500'
-                }`}
-              >
-                {patientContext.canMarkDone ? 'Enabled' : 'Restricted by patient'}
-              </span>
-            </div>
+          <div className="p-3.5 rounded-2xl text-xs space-y-2" style={subCell}>
+            <div className="font-semibold" style={hd}>Your Caregiver Permissions:</div>
+            {[
+              { label: 'View daily tasks & plan:', val: 'Enabled', ok: true },
+              { label: 'Log medicine check-ins:', val: 'Enabled', ok: true },
+              { label: 'Mark items completed:', val: patientContext.canMarkDone ? 'Enabled' : 'Restricted by patient', ok: patientContext.canMarkDone },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0" style={div}>
+                <span style={md}>{row.label}</span>
+                <span className="font-semibold" style={row.ok
+                  ? isLight ? { color: '#1A7A50' } : { color: '#34d399' }
+                  : isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}>
+                  {row.val}
+                </span>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* PWA App Installation Section */}
-      <div className="rounded-3xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100">
+      {/* PWA Installation */}
+      <div className="rounded-3xl p-4 shadow-sm" style={card}>
         <div className="flex items-center gap-2 mb-2">
-          <Download className="w-4 h-4 text-teal-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-teal-300">
+          <Download className="w-4 h-4" style={acc} />
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
             {t(language, 'install_pwa')}
           </h2>
         </div>
-        <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-          {t(language, 'install_desc')}
-        </p>
+        <p className="text-xs mb-3 leading-relaxed" style={md}>{t(language, 'install_desc')}</p>
         <PWAInstallButton variant="card" />
       </div>
 
-      {/* Reset Demo State Button */}
+      {/* Reset demo */}
       <div className="pt-2">
         <button
           onClick={() => {
@@ -286,7 +328,10 @@ export const SettingsView: React.FC = () => {
               refreshData();
             }
           }}
-          className="w-full min-h-[44px] rounded-2xl bg-slate-900/80 border border-slate-800 hover:bg-slate-800 text-xs text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2 transition"
+          className="w-full min-h-[44px] rounded-2xl flex items-center justify-center gap-2 text-xs transition"
+          style={isLight
+            ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#7A9AAD' }
+            : { backgroundColor: 'rgba(15,23,42,0.8)', border: '1px solid rgba(30,41,59,1)', color: '#475569' }}
         >
           <RotateCcw className="w-4 h-4" />
           <span>Reset Demo Data</span>

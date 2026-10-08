@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FollowupItem, Language } from '../../types';
+import { FollowupItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/supabaseMock';
 import { speechService } from '../../services/speechService';
@@ -22,37 +22,27 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
-  const { language, patientContext, refreshData } = useAuth();
+  const { language, patientContext, refreshData, theme } = useAuth();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Read verified translation if available
   const translation = db.getItemTranslation(item.id, language);
   const hasVerifiedTranslation = !!translation && language !== 'en';
-
-  const displayTitle = hasVerifiedTranslation
-    ? translation.title
-    : item.title;
-
-  const displayInstruction = hasVerifiedTranslation
-    ? translation.instruction
-    : item.original_text;
+  const displayTitle = hasVerifiedTranslation ? translation!.title : item.title;
+  const displayInstruction = hasVerifiedTranslation ? translation!.instruction : item.original_text;
 
   const isCompleted = item.effective_status === 'completed';
   const isOverdue = item.effective_status === 'overdue';
+  const isLight = theme === 'light';
 
   const handleToggleDone = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!patientContext.canMarkDone || isSubmitting) return;
-
     setIsSubmitting(true);
-    // Optimistic update
     const res = db.markItemDone(item.id, patientContext);
     setIsSubmitting(false);
-    if (res.success) {
-      refreshData();
-    }
+    if (res.success) refreshData();
   };
 
   const handleListen = (e: React.MouseEvent) => {
@@ -62,13 +52,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
       setIsSpeaking(false);
     } else {
       setIsSpeaking(true);
-      const textToSpeak = `${displayTitle}. ${displayInstruction}`;
-      speechService.speak(
-        textToSpeak,
-        language,
-        () => setIsSpeaking(false),
-        () => setIsSpeaking(false)
-      );
+      speechService.speak(`${displayTitle}. ${displayInstruction}`, language,
+        () => setIsSpeaking(false), () => setIsSpeaking(false));
     }
   };
 
@@ -77,34 +62,67 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
     setShowOriginal((prev) => !prev);
   };
 
-  // Status Chip Rendering (Small chip/icon, never giant colored cards)
+  /* ── Card background / border based on status + theme ── */
+  const cardStyle: React.CSSProperties = isLight
+    ? isCompleted
+      ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', boxShadow: 'none', opacity: 0.85 }
+      : isOverdue
+      ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', boxShadow: '0 1px 4px rgba(197,138,0,0.10)' }
+      : { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', boxShadow: '0 1px 4px rgba(24,50,74,0.07)' }
+    : isCompleted
+    ? { background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(30,41,59,1)' }
+    : isOverdue
+    ? { background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(120,53,15,0.6)' }
+    : { background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(20,184,166,0.2)' };
+
+  /* ── Status chip ── */
   const renderStatusChip = () => {
     switch (item.effective_status) {
       case 'completed':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-950/70 border border-emerald-700/60 text-emerald-300">
-            <Check className="w-3 h-3 text-emerald-400" />
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            style={isLight
+              ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
+              : { backgroundColor: 'rgba(6,78,59,0.7)', border: '1px solid rgba(4,120,87,0.6)', color: '#6ee7b7' }}
+          >
+            <Check className="w-3 h-3" />
             <span>{t(language, 'marked_done')}</span>
           </span>
         );
       case 'overdue':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-950/80 border border-amber-600/70 text-amber-300">
-            <AlertCircle className="w-3 h-3 text-amber-400" />
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            style={isLight
+              ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }
+              : { backgroundColor: 'rgba(120,53,15,0.8)', border: '1px solid rgba(146,64,14,0.7)', color: '#fcd34d' }}
+          >
+            <AlertCircle className="w-3 h-3" />
             <span>Overdue</span>
           </span>
         );
       case 'needs_review':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-950/70 border border-blue-700/60 text-blue-300">
-            <Clock className="w-3 h-3 text-blue-400" />
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            style={isLight
+              ? { backgroundColor: '#E8F3FC', border: '1px solid #B8D4EA', color: '#2B5F8A' }
+              : { backgroundColor: 'rgba(30,58,138,0.7)', border: '1px solid rgba(30,64,175,0.6)', color: '#93c5fd' }}
+          >
+            <Clock className="w-3 h-3" />
             <span>In Review</span>
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 border border-slate-700 text-slate-300">
-            <Clock className="w-3 h-3 text-slate-400" />
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+            style={isLight
+              ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }
+              : { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' }}
+          >
+            <Clock className="w-3 h-3" />
             <span>Pending</span>
           </span>
         );
@@ -117,17 +135,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onOpenDetails(item)}
-      className={`relative w-full rounded-2xl p-4 transition-all border text-left cursor-pointer active:scale-[0.99] ${
-        isCompleted
-          ? 'bg-slate-900/60 border-slate-800 text-slate-400'
-          : isOverdue
-          ? 'bg-slate-900/90 border-amber-800/60 shadow-sm shadow-amber-950/30 text-slate-100'
-          : 'bg-slate-900/90 border-teal-900/50 hover:border-teal-700/60 shadow-sm text-slate-100'
-      }`}
+      className="relative w-full rounded-2xl p-4 transition-all text-left cursor-pointer active:scale-[0.99]"
+      style={cardStyle}
     >
-      {/* Top Header: Category/Date + Status Chip */}
+      {/* Date + Status row */}
       <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium truncate">
+        <div
+          className="flex items-center gap-2 text-xs font-medium truncate"
+          style={isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}
+        >
           <span>{item.due_date}</span>
           {item.due_time && (
             <>
@@ -139,99 +155,114 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
         <div>{renderStatusChip()}</div>
       </div>
 
-      {/* Main Title */}
+      {/* Title */}
       <h3
-        className={`text-sm font-semibold leading-snug tracking-tight mb-1.5 ${
-          isCompleted ? 'line-through text-slate-400' : 'text-slate-100'
-        }`}
+        className="text-sm font-semibold leading-snug tracking-tight mb-1.5"
+        style={isLight
+          ? { color: isCompleted ? '#7A9AAD' : '#18324A', textDecoration: isCompleted ? 'line-through' : 'none' }
+          : { color: isCompleted ? '#64748b' : '#f1f5f9', textDecoration: isCompleted ? 'line-through' : 'none' }}
       >
         {displayTitle}
       </h3>
 
-      {/* Verified vs Unverified Translation Warning */}
+      {/* Unverified translation warning */}
       {!hasVerifiedTranslation && language !== 'en' && (
-        <div className="mb-2 p-1.5 rounded-lg bg-amber-950/40 border border-amber-800/40 text-[11px] text-amber-300/90">
+        <div
+          className="mb-2 p-1.5 rounded-lg text-[11px]"
+          style={isLight
+            ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }
+            : { backgroundColor: 'rgba(120,53,15,0.4)', border: '1px solid rgba(120,53,15,0.4)', color: '#fcd34d' }}
+        >
           {t(language, 'please_confirm_team')}
         </div>
       )}
 
-      {/* Toggled Verbatim Original Text */}
+      {/* Verbatim original text toggle */}
       {showOriginal && (
-        <div className="mb-3 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 font-mono leading-relaxed">
-          <div className="text-[10px] uppercase font-bold text-teal-400 mb-1">
+        <div
+          className="mb-3 p-2.5 rounded-xl text-xs font-mono leading-relaxed"
+          style={isLight
+            ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#18324A' }
+            : { backgroundColor: 'rgba(2,8,23,1)', border: '1px solid rgba(30,41,59,1)', color: '#cbd5e1' }}
+        >
+          <div className="text-[10px] uppercase font-bold mb-1" style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}>
             Verbatim Medical Text
           </div>
           {item.original_text}
         </div>
       )}
 
-      {/* Provider Suggestion if present */}
+      {/* Provider suggestion */}
       {item.provider_suggestion && (
-        <div className="flex items-center gap-1.5 text-xs text-teal-300/90 mb-3 bg-teal-950/40 px-2.5 py-1.5 rounded-xl border border-teal-900/40">
-          <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+        <div
+          className="flex items-center gap-1.5 text-xs mb-3 px-2.5 py-1.5 rounded-xl"
+          style={isLight
+            ? { backgroundColor: 'rgba(0,175,163,0.08)', border: '1px solid #A8D9D5', color: '#007A73' }
+            : { backgroundColor: 'rgba(19,78,74,0.4)', border: '1px solid rgba(20,184,166,0.2)', color: '#5eead4' }}
+        >
+          <MapPin className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">{item.provider_suggestion.name}</span>
           {item.provider_suggestion.location && (
-            <span className="text-slate-400 shrink-0 text-[11px]">
+            <span className="shrink-0 text-[11px]" style={isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}>
               ({item.provider_suggestion.location})
             </span>
           )}
         </div>
       )}
 
-      {/* Action Bar with Listen, Original, and Mark Done */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-2">
+      {/* Action bar */}
+      <div
+        className="flex items-center justify-between pt-2 gap-2"
+        style={{ borderTop: isLight ? '1px solid #C5DCE8' : '1px solid rgba(30,41,59,0.8)' }}
+      >
         <div className="flex items-center gap-1.5">
-          {/* Listen Button (SpeechSynthesis) */}
+          {/* Listen */}
           <button
             type="button"
             onClick={handleListen}
             aria-label={isSpeaking ? t(language, 'stop_listening') : t(language, 'listen')}
-            className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95 ${
-              isSpeaking
-                ? 'bg-teal-600 text-white animate-pulse'
-                : 'bg-slate-800 hover:bg-slate-700/80 text-teal-300 border border-slate-700'
-            }`}
+            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95"
+            style={isSpeaking
+              ? { backgroundColor: '#00AFA3', color: '#ffffff' }
+              : isLight
+              ? { backgroundColor: '#D4EEF7', border: '1px solid #C5DCE8', color: '#007A73' }
+              : { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#5eead4' }}
           >
-            {isSpeaking ? (
-              <>
-                <VolumeX className="w-3.5 h-3.5" />
-                <span>{t(language, 'stop_listening')}</span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-3.5 h-3.5" />
-                <span>{t(language, 'listen')}</span>
-              </>
-            )}
+            {isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            <span>{isSpeaking ? t(language, 'stop_listening') : t(language, 'listen')}</span>
           </button>
 
-          {/* Original Verbatim Button */}
+          {/* Original text toggle */}
           <button
             type="button"
             onClick={handleToggleOriginal}
             aria-label="View original verbatim prescription text"
-            className="min-h-[44px] px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 text-slate-300 bg-slate-800 hover:bg-slate-700/80 border border-slate-700 transition active:scale-95"
+            className="min-h-[44px] px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition active:scale-95"
+            style={isLight
+              ? { backgroundColor: '#D4EEF7', border: '1px solid #C5DCE8', color: '#587084' }
+              : { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' }}
           >
-            <FileText className="w-3.5 h-3.5 text-slate-400" />
+            <FileText className="w-3.5 h-3.5" />
             <span>{t(language, 'original')}</span>
           </button>
         </div>
 
-        {/* Mark Done Button (Conditional on caregiver permissions) */}
+        {/* Mark done */}
         {patientContext.canMarkDone && (
           <button
             type="button"
             onClick={handleToggleDone}
             aria-label={isCompleted ? 'Mark as incomplete' : t(language, 'mark_done')}
-            className={`min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95 ${
-              isCompleted
-                ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 hover:bg-emerald-900/60'
-                : 'bg-teal-600 hover:bg-teal-500 text-white shadow-sm'
-            }`}
+            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95"
+            style={isCompleted
+              ? isLight
+                ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
+                : { backgroundColor: 'rgba(6,78,59,0.8)', border: '1px solid rgba(4,120,87,0.8)', color: '#6ee7b7' }
+              : { backgroundColor: '#00AFA3', color: '#ffffff', boxShadow: '0 1px 4px rgba(0,175,163,0.25)' }}
           >
             {isCompleted ? (
               <>
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <CheckCircle className="w-4 h-4" />
                 <span>{t(language, 'marked_done')}</span>
               </>
             ) : (
@@ -244,9 +275,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
         )}
       </div>
 
-      {/* Completion info attribution if finished */}
+      {/* Completion attribution */}
       {isCompleted && item.completed_by && (
-        <div className="mt-2 text-[10px] text-slate-400 font-medium">
+        <div className="mt-2 text-[10px] font-medium" style={isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}>
           {t(language, 'logged_by', { name: item.completed_by })}
         </div>
       )}

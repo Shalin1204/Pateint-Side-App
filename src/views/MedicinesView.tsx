@@ -3,24 +3,17 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../services/supabaseMock';
 import { MedicineCard } from '../components/medicines/MedicineCard';
 import { t } from '../i18n/translations';
-import { Pill, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Pill, ShieldCheck } from 'lucide-react';
 
 export const MedicinesView: React.FC = () => {
-  const { patientContext, language } = useAuth();
+  const { patientContext, language, theme } = useAuth();
+  const isLight = theme === 'light';
 
-  const medications = useMemo(() => {
-    return db.getMedications(patientContext.patientId);
-  }, [patientContext.patientId]);
-
-  const todayAdherence = useMemo(() => {
-    return db.getAdherenceLogs(patientContext.patientId, '2026-10-08');
-  }, [patientContext.patientId]);
-
+  const medications = useMemo(() => db.getMedications(patientContext.patientId), [patientContext.patientId]);
+  const todayAdherence = useMemo(() => db.getAdherenceLogs(patientContext.patientId, '2026-10-08'), [patientContext.patientId]);
   const adherenceMap = useMemo(() => {
     const map = new Map<string, (typeof todayAdherence)[0]>();
-    todayAdherence.forEach((log) => {
-      map.set(log.medication_id, log);
-    });
+    todayAdherence.forEach((log) => map.set(log.medication_id, log));
     return map;
   }, [todayAdherence]);
 
@@ -28,47 +21,66 @@ export const MedicinesView: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-8 animate-in fade-in duration-200">
-      {/* Header and Summary */}
-      <div className="rounded-3xl bg-slate-900 border border-teal-900/60 p-5 shadow-sm text-white">
+
+      {/* Header summary card */}
+      <div
+        className="rounded-3xl p-5 shadow-sm"
+        style={isLight
+          ? { background: 'linear-gradient(135deg, #D4EEF7 0%, #E8F5FB 100%)', border: '1px solid #B8D9E8', boxShadow: '0 2px 10px rgba(24,50,74,0.07)' }
+          : { backgroundColor: '#0f172a', border: '1px solid rgba(20,184,166,0.25)' }}
+      >
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-xs font-semibold text-teal-400 uppercase tracking-wider">
+            <span className="text-xs font-semibold uppercase tracking-wider" style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}>
               Prescription Regimen
             </span>
-            <h1 className="text-xl font-bold tracking-tight text-white mt-0.5">
+            <h1 className="text-xl font-bold tracking-tight mt-0.5" style={isLight ? { color: '#18324A' } : { color: '#ffffff' }}>
               {t(language, 'medicines')}
             </h1>
           </div>
-          <div className="w-10 h-10 rounded-2xl bg-teal-950 border border-teal-800 flex items-center justify-center text-teal-400 shadow-sm">
+          <div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-sm"
+            style={isLight
+              ? { backgroundColor: 'rgba(0,175,163,0.12)', border: '1px solid #A8D9D5', color: '#007A73' }
+              : { backgroundColor: 'rgba(19,78,74,0.5)', border: '1px solid rgba(20,184,166,0.4)', color: '#2dd4bf' }}
+          >
             <Pill className="w-5 h-5" />
           </div>
         </div>
 
-        {/* Daily Adherence Progress */}
-        <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-          <span className="text-slate-300">
-            Today's Check-ins: <strong className="text-white">{takenCount} of {medications.length} logged taken</strong>
+        <div
+          className="mt-4 pt-3 flex items-center justify-between text-xs"
+          style={{ borderTop: isLight ? '1px solid #C5DCE8' : '1px solid rgba(30,41,59,1)' }}
+        >
+          <span style={isLight ? { color: '#587084' } : { color: '#cbd5e1' }}>
+            Today's Check-ins:{' '}
+            <strong style={isLight ? { color: '#18324A' } : { color: '#ffffff' }}>
+              {takenCount} of {medications.length} logged taken
+            </strong>
           </span>
-          <span className="text-teal-400 font-semibold">08 Oct 2026</span>
+          <span className="font-semibold" style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}>
+            08 Oct 2026
+          </span>
         </div>
       </div>
 
-      {/* Safety Notice regarding verbatim clinical dosing */}
-      <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-3 text-xs text-slate-400 flex items-start gap-2.5">
-        <ShieldCheck className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-        <p className="leading-relaxed text-[11px]">
+      {/* Safety notice */}
+      <div
+        className="rounded-2xl p-3 flex items-start gap-2.5"
+        style={isLight
+          ? { backgroundColor: '#E8F3FC', border: '1px solid #B8D4EA' }
+          : { backgroundColor: 'rgba(15,23,42,0.7)', border: '1px solid rgba(30,41,59,1)' }}
+      >
+        <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }} />
+        <p className="leading-relaxed text-[11px]" style={isLight ? { color: '#2B5F8A' } : { color: '#94a3b8' }}>
           Instructions are shown verbatim from your hospital prescription. Never adjust doses or stop cardiac medications without consulting your cardiologist.
         </p>
       </div>
 
-      {/* Vertical Medicine Cards */}
+      {/* Medicine cards */}
       <div className="space-y-3.5">
         {medications.map((med) => (
-          <MedicineCard
-            key={med.id}
-            medication={med}
-            adherenceLog={adherenceMap.get(med.id)}
-          />
+          <MedicineCard key={med.id} medication={med} adherenceLog={adherenceMap.get(med.id)} />
         ))}
       </div>
     </div>
