@@ -1,32 +1,59 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
-import { Language } from '../types';
+import { useNotification } from '../context/NotificationContext';
+import { dataService } from '../services/dataService';
+import { Language, AccessRequest } from '../types';
 import { t } from '../i18n/translations';
 import { PWAInstallButton } from '../components/pwa/PWAInstallButton';
 import {
   ArrowLeft, Globe, Users, Check, X, UserCheck,
-  Download, RotateCcw, Moon, Sun,
+  Download, RotateCcw, Moon, Sun, Shield, Database,
 } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const {
     currentUser, patientContext, language, setLanguage,
-    setActiveSubRoute, refreshData, switchPersona, theme, setTheme,
+    setActiveSubRoute, refreshData, switchPersona, theme, setTheme, isSupabaseLive,
   } = useAuth();
+  const { notifySuccess, notifyError, notifyInfo } = useNotification();
   const isLight = theme === 'light';
 
   const isPatientOwner = currentUser.role === 'patient';
-  const accessRequests = useMemo(() => db.getAccessRequests(), []);
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getAccessRequests().then((reqs) => {
+      if (isMounted) setAccessRequests(reqs);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const pendingRequests = accessRequests.filter((r) => r.status === 'pending');
 
-  const handleDecideRequest = (requestId: string, decision: 'approved' | 'denied') => {
-    db.decideAccessRequest(requestId, decision);
-    refreshData();
+  const handleDecideRequest = async (requestId: string, decision: 'approved' | 'denied') => {
+    const res = await dataService.decideAccessRequest(requestId, decision);
+    if (res.success) {
+      notifySuccess(
+        `Caregiver access request was ${decision}.`,
+        'Caregiver Permissions'
+      );
+      const updated = await dataService.getAccessRequests();
+      setAccessRequests(updated);
+      refreshData();
+    } else {
+      notifyError(res.error || 'Failed to update access request.', 'Update Error');
+    }
   };
 
-  const handleToggleCaregiverMarkDone = (allowed: boolean) => {
-    db.updateCaregiverCanMarkDone('usr_caregiver_ramesh', allowed);
+  const handleToggleCaregiverMarkDone = async (allowed: boolean) => {
+    await dataService.updateCaregiverCanMarkDone('usr_caregiver_ramesh', allowed);
+    notifyInfo(
+      `Caregiver task completion permission set to: ${allowed ? 'Allowed' : 'View Only'}`,
+      'Caregiver Delegation'
+    );
     refreshData();
   };
 
@@ -56,256 +83,265 @@ export const SettingsView: React.FC = () => {
         <button
           onClick={() => setActiveSubRoute(null)}
           aria-label="Back"
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl transition cursor-pointer"
           style={backBtn}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-lg font-bold tracking-tight" style={hd}>{t(language, 'settings')}</h1>
-          <p className="text-xs" style={acc}>Preferences & account access controls</p>
+          <h1 className="text-lg font-bold tracking-tight" style={hd}>
+            {t(language, 'settings')}
+          </h1>
+          <p className="text-xs" style={acc}>
+            Preferences, caregiver access, and system info
+          </p>
         </div>
       </div>
 
-      {/* Persona switcher */}
-      <div className="rounded-3xl p-4 shadow-sm space-y-3" style={card}>
-        <div className="flex items-center gap-2">
-          <UserCheck className="w-4 h-4" style={acc} />
-          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>Active App Persona</h2>
+      {/* Database Connection Status Banner */}
+      <div
+        className="rounded-2xl p-3.5 flex items-center justify-between border"
+        style={
+          isSupabaseLive
+            ? isLight
+              ? { backgroundColor: '#E4F6F1', borderColor: '#A8DFC9', color: '#096444' }
+              : { backgroundColor: 'rgba(6,78,59,0.4)', borderColor: 'rgba(4,120,87,0.6)', color: '#6ee7b7' }
+            : isLight
+            ? { backgroundColor: '#E8F3FC', borderColor: '#B8D4EA', color: '#2B5F8A' }
+            : { backgroundColor: 'rgba(30,58,138,0.4)', borderColor: 'rgba(37,99,235,0.4)', color: '#93c5fd' }
+        }
+      >
+        <div className="flex items-center gap-2.5">
+          <Database className="w-4 h-4 shrink-0" />
+          <div className="text-xs">
+            <span className="font-bold">{isSupabaseLive ? 'Connected to Supabase' : 'Offline / Local Prototype Store'}</span>
+            <p className="text-[11px] opacity-80">{isSupabaseLive ? 'Realtime subscriptions and cloud tables active.' : 'Operating with local database layer.'}</p>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { id: 'usr_patient_lakshmi', initials: 'LD', name: 'Lakshmi Devi', role: 'Patient Mode', teal: true },
-            { id: 'usr_caregiver_ramesh', initials: 'RK', name: 'Ramesh Kumar', role: 'Caregiver Mode', teal: false },
-          ].map((p) => {
-            const isActive = currentUser.id === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => switchPersona(p.id as any)}
-                className="p-3 rounded-2xl border text-left transition flex flex-col justify-between"
-                style={isActive
-                  ? p.teal
-                    ? isLight
-                      ? { backgroundColor: 'rgba(0,175,163,0.10)', border: '1px solid #00AFA3' }
-                      : { backgroundColor: 'rgba(19,78,74,0.9)', border: '1px solid #0d9488' }
-                    : isLight
-                      ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A' }
-                      : { backgroundColor: 'rgba(120,53,15,0.9)', border: '1px solid rgba(146,64,14,1)' }
-                  : isLight
-                    ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8' }
-                    : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(30,41,59,0.8)' }}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={p.teal
-                      ? isLight
-                        ? { backgroundColor: 'rgba(0,175,163,0.15)', color: '#007A73' }
-                        : { backgroundColor: 'rgba(19,78,74,0.6)', color: '#5eead4' }
-                      : isLight
-                        ? { backgroundColor: '#FFF5D9', color: '#C58A00' }
-                        : { backgroundColor: 'rgba(120,53,15,0.6)', color: '#fcd34d' }}
-                  >
-                    {p.initials}
-                  </span>
-                  {isActive && (
-                    <Check className="w-4 h-4" style={p.teal
-                      ? isLight ? { color: '#007A73' } : { color: '#2dd4bf' }
-                      : isLight ? { color: '#C58A00' } : { color: '#fbbf24' }} />
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs font-bold" style={hd}>{p.name}</div>
-                  <div className="text-[11px]" style={p.teal
-                    ? isLight ? { color: '#007A73' } : { color: 'rgba(94,234,212,0.8)' }
-                    : isLight ? { color: '#C58A00' } : { color: 'rgba(252,211,77,0.8)' }}
-                  >
-                    {p.role}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border border-current">
+          {isSupabaseLive ? 'Cloud' : 'Local'}
+        </span>
       </div>
 
-      {/* Theme toggle */}
-      <div className="rounded-3xl p-4 shadow-sm space-y-3" style={card}>
-        <div className="flex items-center gap-2">
+      {/* Appearance / Theme */}
+      <div className="rounded-3xl p-4 shadow-sm" style={card}>
+        <div className="flex items-center gap-2 mb-2">
           {isLight ? <Sun className="w-4 h-4" style={acc} /> : <Moon className="w-4 h-4" style={acc} />}
-          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>Appearance</h2>
+          <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
+            Appearance
+          </h2>
         </div>
-        <p className="text-xs leading-relaxed" style={md}>
-          Choose your preferred colour theme. Light mode uses the Clinical Mint palette.
+        <p className="text-xs mb-3 leading-relaxed" style={md}>
+          Choose between Clinical Mint light mode for day-time clarity and Dark Mode for low light.
         </p>
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => setTheme('dark')}
-            className="min-h-[64px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all"
-            style={theme === 'dark'
-              ? { backgroundColor: 'rgba(20,184,166,0.12)', border: '2px solid #14b8a6', color: '#2dd4bf' }
-              : isLight
-                ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#587084' }
-                : { backgroundColor: '#0f172a', border: '1px solid rgba(30,41,59,0.8)', color: '#64748b' }}
+            onClick={() => setTheme('light')}
+            className={`min-h-[46px] p-3 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold transition cursor-pointer ${
+              isLight ? 'shadow-sm' : ''
+            }`}
+            style={
+              isLight
+                ? { backgroundColor: '#00AFA3', color: '#ffffff' }
+                : { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' }
+            }
           >
-            <Moon className="w-5 h-5" />
-            <span className="text-xs font-semibold">Dark</span>
+            <Sun className="w-4 h-4" />
+            <span>Clinical Mint (Light)</span>
           </button>
           <button
-            onClick={() => setTheme('light')}
-            className="min-h-[64px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all"
-            style={theme === 'light'
-              ? { backgroundColor: 'rgba(0,175,163,0.10)', border: '2px solid #00AFA3', color: '#007A73' }
-              : { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }}
+            onClick={() => setTheme('dark')}
+            className={`min-h-[46px] p-3 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold transition cursor-pointer ${
+              !isLight ? 'shadow-sm' : ''
+            }`}
+            style={
+              !isLight
+                ? { backgroundColor: '#0f766e', color: '#ffffff' }
+                : { backgroundColor: '#E1F0F7', border: '1px solid #C5DCE8', color: '#587084' }
+            }
           >
-            <Sun className="w-5 h-5" />
-            <span className="text-xs font-semibold">Light</span>
+            <Moon className="w-4 h-4" />
+            <span>Dark Slate</span>
           </button>
         </div>
       </div>
 
-      {/* Language selector */}
+      {/* Language */}
       <div className="rounded-3xl p-4 shadow-sm" style={card}>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <Globe className="w-4 h-4" style={acc} />
           <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
-            {t(language, 'preferred_language')}
+            {t(language, 'language_select')}
           </h2>
         </div>
+        <p className="text-xs mb-3 leading-relaxed" style={md}>
+          Translate care instructions and tasks into your preferred regional language.
+        </p>
         <div className="grid grid-cols-3 gap-2">
-          {([
-            { code: 'en', label: 'English', script: 'English' },
-            { code: 'hi', label: 'हिंदी', script: 'Hindi' },
-            { code: 'ta', label: 'தமிழ்', script: 'Tamil' },
-          ] as const).map((l) => (
+          {(
+            [
+              { code: 'en', label: 'English', sub: 'English' },
+              { code: 'hi', label: 'हिंदी', sub: 'Hindi' },
+              { code: 'ta', label: 'தமிழ்', sub: 'Tamil' },
+            ] as const
+          ).map((lang) => (
             <button
-              key={l.code}
-              onClick={() => setLanguage(l.code)}
-              className="min-h-[44px] rounded-xl text-xs font-semibold flex flex-col items-center justify-center transition border"
-              style={language === l.code
-                ? { backgroundColor: '#00AFA3', borderColor: '#00AFA3', color: '#ffffff' }
-                : isLight
-                  ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#587084' }
-                  : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(30,41,59,0.8)', color: '#94a3b8' }}
+              key={lang.code}
+              onClick={() => setLanguage(lang.code as Language)}
+              className="p-3 rounded-2xl text-center transition min-h-[58px] cursor-pointer"
+              style={
+                language === lang.code
+                  ? { backgroundColor: isLight ? '#00AFA3' : '#0f766e', color: '#ffffff' }
+                  : subCell
+              }
             >
-              <span className="font-bold">{l.label}</span>
-              <span className="text-[10px] opacity-75">{l.script}</span>
+              <div className="font-bold text-xs" style={language === lang.code ? { color: '#ffffff' } : hd}>
+                {lang.label}
+              </div>
+              <div className="text-[10px] mt-0.5" style={language === lang.code ? { color: 'rgba(255,255,255,0.8)' } : md}>
+                {lang.sub}
+              </div>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Caregiver access control */}
+      {/* Persona Switcher (Demo / Testing) */}
       <div className="rounded-3xl p-4 shadow-sm" style={card}>
         <div className="flex items-center gap-2 mb-2">
           <Users className="w-4 h-4" style={acc} />
           <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
-            {t(language, 'caregiver_access')}
+            Switch Persona (Simulation)
           </h2>
         </div>
-        <p className="text-xs mb-4 leading-relaxed" style={md}>
-          {t(language, 'caregiver_access_desc')}
+        <p className="text-xs mb-3 leading-relaxed" style={md}>
+          Toggle between primary patient view and caregiver delegate mode.
         </p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => switchPersona('usr_patient_lakshmi')}
+            className="p-3 rounded-2xl text-left transition min-h-[64px] cursor-pointer"
+            style={
+              currentUser.role === 'patient'
+                ? { backgroundColor: isLight ? '#00AFA3' : '#0f766e', color: '#ffffff' }
+                : subCell
+            }
+          >
+            <div className="text-xs font-bold" style={currentUser.role === 'patient' ? { color: '#ffffff' } : hd}>
+              Lakshmi Devi
+            </div>
+            <div className="text-[10px] mt-0.5" style={currentUser.role === 'patient' ? { color: 'rgba(255,255,255,0.8)' } : md}>
+              Primary Patient
+            </div>
+          </button>
+          <button
+            onClick={() => switchPersona('usr_caregiver_ramesh')}
+            className="p-3 rounded-2xl text-left transition min-h-[64px] cursor-pointer"
+            style={
+              currentUser.role === 'caregiver'
+                ? { backgroundColor: isLight ? '#00AFA3' : '#0f766e', color: '#ffffff' }
+                : subCell
+            }
+          >
+            <div className="text-xs font-bold" style={currentUser.role === 'caregiver' ? { color: '#ffffff' } : hd}>
+              Ramesh Kumar
+            </div>
+            <div className="text-[10px] mt-0.5" style={currentUser.role === 'caregiver' ? { color: 'rgba(255,255,255,0.8)' } : md}>
+              Caregiver (Son)
+            </div>
+          </button>
+        </div>
+      </div>
 
-        {isPatientOwner ? (
-          <div className="space-y-4">
-            <div className="p-3.5 rounded-2xl" style={subCell}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                    style={isLight
-                      ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }
-                      : { backgroundColor: 'rgba(120,53,15,0.5)', border: '1px solid rgba(120,53,15,0.8)', color: '#fcd34d' }}
-                  >
-                    RK
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold" style={hd}>Ramesh Kumar</div>
-                    <div className="text-[11px]" style={md}>Son · Linked Caregiver</div>
-                  </div>
-                </div>
-                <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                  style={isLight
-                    ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
-                    : { backgroundColor: 'rgba(6,78,59,0.5)', border: '1px solid rgba(4,120,87,0.8)', color: '#6ee7b7' }}
-                >
-                  Active
-                </span>
-              </div>
+      {/* Caregiver Access Control (Only visible to Patient) */}
+      {isPatientOwner && (
+        <div className="rounded-3xl p-4 shadow-sm" style={card}>
+          <div className="flex items-center gap-2 mb-2">
+            <UserCheck className="w-4 h-4" style={acc} />
+            <h2 className="text-xs font-bold uppercase tracking-wider" style={acc}>
+              Caregiver Access Management
+            </h2>
+          </div>
+          <p className="text-xs mb-3 leading-relaxed" style={md}>
+            Manage family member permissions and task completion authority.
+          </p>
 
-              <div className="flex items-center justify-between pt-3 border-t" style={div}>
-                <span className="text-xs pr-2" style={md}>{t(language, 'can_mark_done_toggle')}</span>
-                <input
-                  type="checkbox"
-                  checked={patientContext.canMarkDone}
-                  onChange={(e) => handleToggleCaregiverMarkDone(e.target.checked)}
-                  className="w-5 h-5 rounded cursor-pointer"
-                  style={{ accentColor: '#00AFA3' }}
-                />
+          {/* Active linked caregiver */}
+          <div className="p-3 rounded-2xl mb-3" style={subCell}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold" style={hd}>Ramesh Kumar</div>
+                <div className="text-[11px]" style={md}>Relationship: Son (Active Link)</div>
               </div>
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase"
+                style={isLight
+                  ? { backgroundColor: '#E4F6F1', color: '#1A7A50' }
+                  : { backgroundColor: 'rgba(6,78,59,0.6)', color: '#6ee7b7' }}
+              >
+                Active
+              </span>
             </div>
 
-            {pendingRequests.length > 0 && (
-              <div className="pt-2">
-                <div className="text-xs font-bold uppercase tracking-wider mb-2" style={isLight ? { color: '#C58A00' } : { color: '#fbbf24' }}>
-                  {t(language, 'pending_access_requests')}
-                </div>
-                {pendingRequests.map((req) => (
-                  <div key={req.id} className="p-3.5 rounded-2xl" style={isLight
-                    ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A' }
-                    : { backgroundColor: 'rgba(2,8,23,0.6)', border: '1px solid rgba(120,53,15,0.6)' }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <div className="text-xs font-bold" style={hd}>{req.caregiver_name}</div>
-                        <div className="text-[11px]" style={md}>{req.relationship} ({req.caregiver_email})</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      <button
-                        onClick={() => handleDecideRequest(req.id, 'denied')}
-                        className="min-h-[40px] rounded-xl text-xs font-semibold transition"
-                        style={isLight
-                          ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#587084' }
-                          : { backgroundColor: '#1e293b', color: '#94a3b8' }}
-                      >
-                        {t(language, 'deny')}
-                      </button>
-                      <button
-                        onClick={() => handleDecideRequest(req.id, 'approved')}
-                        className="min-h-[40px] rounded-xl text-xs font-semibold text-white transition"
-                        style={{ backgroundColor: '#00AFA3' }}
-                      >
-                        {t(language, 'approve')}
-                      </button>
-                    </div>
+            <div className="mt-3 pt-3 flex items-center justify-between border-t" style={div}>
+              <div>
+                <div className="text-xs font-semibold" style={hd}>Allow Marking Tasks Done</div>
+                <div className="text-[10px]" style={md}>Caregiver can complete medicines & tasks</div>
+              </div>
+              <button
+                onClick={() => handleToggleCaregiverMarkDone(!patientContext.canMarkDone)}
+                className="min-h-[32px] px-3 rounded-xl text-xs font-bold transition cursor-pointer"
+                style={
+                  patientContext.canMarkDone
+                    ? isLight
+                      ? { backgroundColor: '#E4F6F1', color: '#1A7A50', border: '1px solid #A8DFC9' }
+                      : { backgroundColor: 'rgba(6,78,59,0.8)', color: '#6ee7b7' }
+                    : isLight
+                    ? { backgroundColor: '#FFF5D9', color: '#C58A00', border: '1px solid #F5D57A' }
+                    : { backgroundColor: 'rgba(120,53,15,0.8)', color: '#fcd34d' }
+                }
+              >
+                {patientContext.canMarkDone ? 'Allowed' : 'View Only'}
+              </button>
+            </div>
+          </div>
+
+          {/* Pending access requests */}
+          {pendingRequests.length > 0 && (
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold uppercase tracking-wider" style={acc}>
+                Pending Access Requests
+              </div>
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="p-3 rounded-2xl flex items-center justify-between" style={subCell}>
+                  <div>
+                    <div className="text-xs font-bold" style={hd}>{req.caregiver_name}</div>
+                    <div className="text-[11px]" style={md}>{req.relationship} ({req.caregiver_email})</div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-3.5 rounded-2xl text-xs space-y-2" style={subCell}>
-            <div className="font-semibold" style={hd}>Your Caregiver Permissions:</div>
-            {[
-              { label: 'View daily tasks & plan:', val: 'Enabled', ok: true },
-              { label: 'Log medicine check-ins:', val: 'Enabled', ok: true },
-              { label: 'Mark items completed:', val: patientContext.canMarkDone ? 'Enabled' : 'Restricted by patient', ok: patientContext.canMarkDone },
-            ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between py-1 border-b last:border-0" style={div}>
-                <span style={md}>{row.label}</span>
-                <span className="font-semibold" style={row.ok
-                  ? isLight ? { color: '#1A7A50' } : { color: '#34d399' }
-                  : isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}>
-                  {row.val}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handleDecideRequest(req.id, 'approved')}
+                      aria-label="Approve"
+                      className="p-2 rounded-xl text-white transition cursor-pointer"
+                      style={{ backgroundColor: '#00AFA3' }}
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDecideRequest(req.id, 'denied')}
+                      aria-label="Deny"
+                      className="p-2 rounded-xl text-rose-300 transition cursor-pointer"
+                      style={isLight ? { backgroundColor: '#FEE2E2', color: '#DC2626' } : { backgroundColor: 'rgba(127,29,29,0.6)' }}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* PWA Installation */}
       <div className="rounded-3xl p-4 shadow-sm" style={card}>
@@ -324,11 +360,12 @@ export const SettingsView: React.FC = () => {
         <button
           onClick={() => {
             if (confirm('Reset prototype demo state to default factory values?')) {
-              db.resetToDefault();
+              dataService.resetToDefault();
+              notifyInfo('Demo state has been reset to factory defaults.', 'Reset Complete');
               refreshData();
             }
           }}
-          className="w-full min-h-[44px] rounded-2xl flex items-center justify-center gap-2 text-xs transition"
+          className="w-full min-h-[44px] rounded-2xl flex items-center justify-center gap-2 text-xs transition cursor-pointer"
           style={isLight
             ? { backgroundColor: '#EAF4FA', border: '1px solid #C5DCE8', color: '#7A9AAD' }
             : { backgroundColor: 'rgba(15,23,42,0.8)', border: '1px solid rgba(30,41,59,1)', color: '#475569' }}

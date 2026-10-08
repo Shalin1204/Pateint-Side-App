@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { t } from '../i18n/translations';
 import { Provider } from '../types';
 import {
@@ -19,9 +19,16 @@ export const FindCareView: React.FC = () => {
   const [mode, setMode] = useState<'for_plan' | 'nearby'>('for_plan');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [providers, setProviders] = useState<Provider[]>([]);
 
-  const providers = useMemo(() => {
-    return db.nearbyProviders(categoryFilter, searchQuery);
+  useEffect(() => {
+    let isMounted = true;
+    dataService.nearbyProviders(categoryFilter, searchQuery).then((res) => {
+      if (isMounted) setProviders(res);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [categoryFilter, searchQuery]);
 
   // Plan-specific suggested providers

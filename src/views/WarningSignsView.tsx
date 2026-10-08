@@ -1,16 +1,24 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { CreateCoordinationModal } from '../components/common/CreateCoordinationModal';
 import { t } from '../i18n/translations';
-import { AlertTriangle, Phone, ArrowLeft, ShieldAlert, HeartHandshake, PhoneCall } from 'lucide-react';
+import { WarningSign } from '../types';
+import { AlertTriangle, Phone, ArrowLeft, ShieldAlert, HeartHandshake } from 'lucide-react';
 
 export const WarningSignsView: React.FC = () => {
   const { patientContext, language, setActiveSubRoute, refreshData } = useAuth();
   const [showCoordModal, setShowCoordModal] = useState(false);
+  const [warningSigns, setWarningSigns] = useState<WarningSign[]>([]);
 
-  const warningSigns = useMemo(() => {
-    return db.getWarningSigns(patientContext.patientId);
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getWarningSigns(patientContext.patientId).then((signs) => {
+      if (isMounted) setWarningSigns(signs);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [patientContext.patientId]);
 
   return (

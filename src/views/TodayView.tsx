@@ -1,12 +1,19 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskDetailSheet } from '../components/tasks/TaskDetailSheet';
 import { CoordinationCard } from '../components/common/CoordinationCard';
 import { CreateCoordinationModal } from '../components/common/CreateCoordinationModal';
 import { t } from '../i18n/translations';
-import { CoordinationCardStatus } from '../types';
+import {
+  FollowupItem,
+  Medication,
+  AdherenceLog,
+  Reminder,
+  CoordinationCard as CoordinationCardModel,
+  CoordinationCardStatus,
+} from '../types';
 import {
   CheckCircle2,
   Clock,
@@ -35,14 +42,38 @@ export const TodayView: React.FC = () => {
   } = useAuth();
 
   const [showCoordinationModal, setShowCoordinationModal] = useState(false);
+  const [allItems, setAllItems] = useState<FollowupItem[]>([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [adherenceLogs, setAdherenceLogs] = useState<AdherenceLog[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [coordinationCards, setCoordinationCards] = useState<CoordinationCardModel[]>([]);
 
-  const allItems = useMemo(() => db.getEffectiveItems(patientContext.patientId), [patientContext.patientId]);
-  const medications = useMemo(() => db.getMedications(patientContext.patientId), [patientContext.patientId]);
-  const adherenceLogs = useMemo(() => db.getAdherenceLogs(patientContext.patientId, '2026-10-08'), [patientContext.patientId]);
+  useEffect(() => {
+    let isMounted = true;
+    const patId = patientContext.patientId;
+
+    dataService.getEffectiveItems(patId).then((items) => {
+      if (isMounted) setAllItems(items);
+    });
+    dataService.getMedications(patId).then((meds) => {
+      if (isMounted) setMedications(meds);
+    });
+    dataService.getAdherenceLogs(patId, '2026-10-08').then((logs) => {
+      if (isMounted) setAdherenceLogs(logs);
+    });
+    dataService.getReminders(patId).then((rems) => {
+      if (isMounted) setReminders(rems.filter((r) => !r.is_past));
+    });
+    dataService.getCoordinationCards(patId).then((cards) => {
+      if (isMounted) setCoordinationCards(cards);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [patientContext.patientId]);
+
   const takenMedsCount = useMemo(() => adherenceLogs.filter((l) => l.status === 'taken').length, [adherenceLogs]);
-  const reminders = useMemo(() => db.getReminders(patientContext.patientId).filter((r) => !r.is_past), [patientContext.patientId]);
-  const coordinationCards = useMemo(() => db.getCoordinationCards(patientContext.patientId), [patientContext.patientId]);
-
   const reviewCount = useMemo(() => allItems.filter((i) => i.effective_status === 'needs_review').length, [allItems]);
   const visibleItems = useMemo(() => allItems.filter((i) => i.effective_status !== 'needs_review'), [allItems]);
   const dueTodayItems = useMemo(() => visibleItems.filter((i) => (i.section === 'DUE TODAY' || i.section === 'DAILY CARE') && i.effective_status !== 'overdue'), [visibleItems]);
@@ -71,8 +102,10 @@ export const TodayView: React.FC = () => {
   const isCaregiver = patientContext.role === 'caregiver';
   const isLight = theme === 'light';
 
-  const handleUpdateCoordStatus = (id: string, status: CoordinationCardStatus) => {
-    db.updateCoordinationCardStatus(id, status, 'Noted by care coordinator.');
+  const handleUpdateCoordStatus = async (id: string, status: CoordinationCardStatus) => {
+    await dataService.updateCoordinationCardStatus(id, status, 'Noted by care coordinator.');
+    const updated = await dataService.getCoordinationCards(patientContext.patientId);
+    setCoordinationCards(updated);
     refreshData();
   };
 

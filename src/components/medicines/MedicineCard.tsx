@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Medication, AdherenceLog } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../services/supabaseMock';
+import { useNotification } from '../../context/NotificationContext';
+import { dataService } from '../../services/dataService';
 import { t } from '../../i18n/translations';
 import { NotTakenConfirmModal } from './NotTakenConfirmModal';
 import { Check, X, Pill, Clock, AlertCircle, Utensils, ShieldCheck } from 'lucide-react';
@@ -13,6 +14,7 @@ interface MedicineCardProps {
 
 export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenceLog }) => {
   const { language, patientContext, refreshData, theme } = useAuth();
+  const { notifySuccess, notifyError } = useNotification();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFullInstruction, setShowFullInstruction] = useState(false);
 
@@ -21,15 +23,25 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
   const isNotTaken = adherenceLog?.status === 'not_taken';
   const isLight = theme === 'light';
 
-  const handleTake = () => {
-    db.recordAdherence(medication.id, 'taken', patientContext);
-    refreshData();
+  const handleTake = async () => {
+    const res = await dataService.recordAdherence(medication.id, 'taken', patientContext);
+    if (res.success) {
+      notifySuccess(`Recorded dose of ${medication.drug_name} as Taken.`, 'Medication Adherence');
+      refreshData();
+    } else {
+      notifyError(res.error || 'Failed to save medication adherence log.', 'Save Failed');
+    }
   };
 
-  const handleConfirmNotTaken = () => {
-    db.recordAdherence(medication.id, 'not_taken', patientContext);
+  const handleConfirmNotTaken = async () => {
+    const res = await dataService.recordAdherence(medication.id, 'not_taken', patientContext);
     setShowConfirmModal(false);
-    refreshData();
+    if (res.success) {
+      notifySuccess(`Recorded dose of ${medication.drug_name} as Not Taken.`, 'Medication Adherence');
+      refreshData();
+    } else {
+      notifyError(res.error || 'Failed to save medication adherence log.', 'Save Failed');
+    }
   };
 
   const getFoodRelationship = () => {
@@ -138,7 +150,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
             <button
               onClick={() => setShowFullInstruction(!showFullInstruction)}
               className="text-[10px] underline"
-              style={isLight ? { color: '#007A73' } : { color: '#5eead4' }}
+              style={isLight ? { color: '#007A73' } : { color: '#00AFA3' }}
             >
               {showFullInstruction ? 'Collapse' : 'View Instructions'}
             </button>
@@ -168,7 +180,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
         <div className="grid grid-cols-2 gap-2 pt-2 border-t" style={dividerStyle}>
           <button
             onClick={handleTake}
-            className="min-h-[44px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98"
+            className="min-h-[44px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
             style={isTaken
               ? isLight
                 ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }
@@ -181,7 +193,7 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
 
           <button
             onClick={() => setShowConfirmModal(true)}
-            className="min-h-[44px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98"
+            className="min-h-[44px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer"
             style={isNotTaken
               ? isLight
                 ? { backgroundColor: '#FFF5D9', border: '1px solid #F5D57A', color: '#C58A00' }

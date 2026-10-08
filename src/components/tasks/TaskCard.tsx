@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FollowupItem } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../services/supabaseMock';
+import { useNotification } from '../../context/NotificationContext';
+import { dataService } from '../../services/dataService';
 import { speechService } from '../../services/speechService';
 import { t } from '../../i18n/translations';
 import {
@@ -23,11 +24,26 @@ interface TaskCardProps {
 
 export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
   const { language, patientContext, refreshData, theme } = useAuth();
+  const { notifySuccess, notifyError } = useNotification();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [translation, setTranslation] = useState<{ title: string; instruction: string } | null>(null);
 
-  const translation = db.getItemTranslation(item.id, language);
+  useEffect(() => {
+    let isMounted = true;
+    if (language !== 'en') {
+      dataService.getItemTranslation(item.id, language).then((res) => {
+        if (isMounted) setTranslation(res);
+      });
+    } else {
+      setTranslation(null);
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [item.id, language]);
+
   const hasVerifiedTranslation = !!translation && language !== 'en';
   const displayTitle = hasVerifiedTranslation ? translation!.title : item.title;
   const displayInstruction = hasVerifiedTranslation ? translation!.instruction : item.original_text;
@@ -36,13 +52,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
   const isOverdue = item.effective_status === 'overdue';
   const isLight = theme === 'light';
 
-  const handleToggleDone = (e: React.MouseEvent) => {
+  const handleToggleDone = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!patientContext.canMarkDone || isSubmitting) return;
     setIsSubmitting(true);
-    const res = db.markItemDone(item.id, patientContext);
+    const res = await dataService.markItemDone(item.id, patientContext);
     setIsSubmitting(false);
-    if (res.success) refreshData();
+    if (res.success) {
+      notifySuccess(
+        isCompleted ? 'Marked task as pending.' : 'Marked task as completed.',
+        'Care Plan Task'
+      );
+      refreshData();
+    } else {
+      notifyError(res.error || 'Failed to update task status.', 'Task Update Failed');
+    }
   };
 
   const handleListen = (e: React.MouseEvent) => {
@@ -221,7 +245,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
             type="button"
             onClick={handleListen}
             aria-label={isSpeaking ? t(language, 'stop_listening') : t(language, 'listen')}
-            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             style={isSpeaking
               ? { backgroundColor: '#00AFA3', color: '#ffffff' }
               : isLight
@@ -237,7 +261,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
             type="button"
             onClick={handleToggleOriginal}
             aria-label="View original verbatim prescription text"
-            className="min-h-[44px] px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition active:scale-95"
+            className="min-h-[44px] px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition active:scale-95 cursor-pointer"
             style={isLight
               ? { backgroundColor: '#D4EEF7', border: '1px solid #C5DCE8', color: '#587084' }
               : { backgroundColor: 'rgba(30,41,59,1)', border: '1px solid rgba(71,85,105,1)', color: '#94a3b8' }}
@@ -252,8 +276,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
           <button
             type="button"
             onClick={handleToggleDone}
+            disabled={isSubmitting}
             aria-label={isCompleted ? 'Mark as incomplete' : t(language, 'mark_done')}
-            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95"
+            className="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
             style={isCompleted
               ? isLight
                 ? { backgroundColor: '#E4F6F1', border: '1px solid #A8DFC9', color: '#1A7A50' }

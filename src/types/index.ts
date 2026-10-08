@@ -1,3 +1,31 @@
+import {
+  DbPatient,
+  DbRmp,
+  DbDischargeSummary,
+  DbExtractedItem,
+  DbApprovedItem,
+  DbObligation,
+  DbConsent,
+  DbTranslation,
+  DbPatientQuestion,
+  DbPatientAppUser,
+  DbPatientTabPermissions,
+  DbPatientCaregiverLink,
+  DbFollowupItem,
+  DbFollowupItemTranslation,
+  DbPatientMedication,
+  DbAdherenceLog,
+  DbWarningSign,
+  DbTestResult,
+  DbCareProvider,
+  DbPatientMessage,
+  DbReminder,
+  DbCaregiverAccessRequest,
+  DbCoordinationCard,
+} from './database';
+
+export * from './database';
+
 export type Language = 'en' | 'hi' | 'ta';
 
 export type UserRole = 'patient' | 'caregiver';
@@ -8,6 +36,8 @@ export interface UserProfile {
   role: UserRole;
   preferred_language: Language;
   email: string;
+  auth_user_id?: string;
+  patient_id?: string;
 }
 
 export interface PatientContext {
@@ -17,6 +47,10 @@ export interface PatientContext {
   patientName: string;
   relationship?: string;
   canMarkDone: boolean;
+  hospital?: string;
+  primaryDoctor?: string;
+  dischargeDate?: string;
+  dischargeDiagnosis?: string;
 }
 
 export interface TabPermissions {
@@ -48,6 +82,8 @@ export type ItemSection = 'OVERDUE' | 'DUE TODAY' | 'NEXT UP' | 'DAILY CARE';
 export interface FollowupItem {
   id: string;
   patient_id: string;
+  obligation_id?: string | null;
+  approved_item_id?: string | null;
   title: string;
   section: ItemSection;
   category: ItemCategory;
@@ -78,6 +114,7 @@ export interface ItemTranslation {
 export interface Medication {
   id: string;
   patient_id: string;
+  approved_item_id?: string | null;
   drug_name: string;
   dose: string;
   how_often: string;
@@ -88,7 +125,7 @@ export interface Medication {
 export interface AdherenceLog {
   id: string;
   medication_id: string;
-  date: string;
+  date: string; // YYYY-MM-DD
   status: 'taken' | 'not_taken';
   logged_by: string;
   logged_at: string;
@@ -97,6 +134,7 @@ export interface AdherenceLog {
 export interface WarningSign {
   id: string;
   patient_id: string;
+  approved_item_id?: string | null;
   original_text: string; // BYTE-FOR-BYTE
   severity: 'critical' | 'urgent';
 }
@@ -124,6 +162,7 @@ export interface Provider {
     lat: number;
     lng: number;
   };
+  is_active?: boolean;
 }
 
 export interface PatientQuestionMessage {
@@ -141,20 +180,24 @@ export interface PatientQuestionMessage {
 export interface Reminder {
   id: string;
   patient_id: string;
+  followup_item_id?: string | null;
   item_title: string;
   due_time: string;
   channel: 'whatsapp' | 'sms';
   is_past: boolean;
   preview_text: string;
+  scheduled_at?: string | null;
 }
 
 export interface AccessRequest {
   id: string;
+  patient_id?: string;
   caregiver_name: string;
   caregiver_email: string;
   relationship: string;
   status: 'pending' | 'approved' | 'denied';
   requested_at: string;
+  decided_at?: string | null;
 }
 
 export type ActiveTab = 'today' | 'plan' | 'medicines' | 'ask' | 'more';
@@ -245,4 +288,3 @@ export interface AIVerifyResult {
   verifier_role?: string;
   verified_at: string;
 }
-

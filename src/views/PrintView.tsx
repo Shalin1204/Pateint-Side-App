@@ -1,23 +1,36 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { t } from '../i18n/translations';
+import { FollowupItem, Medication, WarningSign, Provider } from '../types';
 import { ArrowLeft, Printer, Share2, AlertTriangle, Phone } from 'lucide-react';
 
 export const PrintView: React.FC = () => {
   const { patientContext, language, setActiveSubRoute } = useAuth();
+  const [items, setItems] = useState<FollowupItem[]>([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [warningSigns, setWarningSigns] = useState<WarningSign[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
 
-  const items = useMemo(() => {
-    return db.getEffectiveItems(patientContext.patientId).filter(
-      (i) => i.effective_status !== 'needs_review'
-    );
+  useEffect(() => {
+    let isMounted = true;
+    const patId = patientContext.patientId;
+    dataService.getEffectiveItems(patId).then((res) => {
+      if (isMounted) setItems(res.filter((i) => i.effective_status !== 'needs_review'));
+    });
+    dataService.getMedications(patId).then((res) => {
+      if (isMounted) setMedications(res);
+    });
+    dataService.getWarningSigns(patId).then((res) => {
+      if (isMounted) setWarningSigns(res);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [patientContext.patientId]);
 
   const appointments = useMemo(() => items.filter((i) => i.category === 'appointment'), [items]);
   const tests = useMemo(() => items.filter((i) => i.category === 'test'), [items]);
-  const medications = useMemo(() => db.getMedications(patientContext.patientId), [patientContext.patientId]);
-  const warningSigns = useMemo(() => db.getWarningSigns(patientContext.patientId), [patientContext.patientId]);
-  const providers = useMemo(() => db.getProviders(), []);
 
   const handlePrint = () => {
     window.print();

@@ -1,18 +1,33 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { MedicineCard } from '../components/medicines/MedicineCard';
 import { t } from '../i18n/translations';
+import { Medication, AdherenceLog } from '../types';
 import { Pill, ShieldCheck } from 'lucide-react';
 
 export const MedicinesView: React.FC = () => {
   const { patientContext, language, theme } = useAuth();
   const isLight = theme === 'light';
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [todayAdherence, setTodayAdherence] = useState<AdherenceLog[]>([]);
 
-  const medications = useMemo(() => db.getMedications(patientContext.patientId), [patientContext.patientId]);
-  const todayAdherence = useMemo(() => db.getAdherenceLogs(patientContext.patientId, '2026-10-08'), [patientContext.patientId]);
+  useEffect(() => {
+    let isMounted = true;
+    const patId = patientContext.patientId;
+    dataService.getMedications(patId).then((meds) => {
+      if (isMounted) setMedications(meds);
+    });
+    dataService.getAdherenceLogs(patId, '2026-10-08').then((logs) => {
+      if (isMounted) setTodayAdherence(logs);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [patientContext.patientId]);
+
   const adherenceMap = useMemo(() => {
-    const map = new Map<string, (typeof todayAdherence)[0]>();
+    const map = new Map<string, AdherenceLog>();
     todayAdherence.forEach((log) => map.set(log.medication_id, log));
     return map;
   }, [todayAdherence]);

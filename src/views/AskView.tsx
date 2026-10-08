@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
+import { logPatientQuestion } from '../services/supabase/questionService';
 import { aiService, ClassifyResponse } from '../services/aiService';
 import { speechService } from '../services/speechService';
 import { CitationChip } from '../components/common/CitationChip';
@@ -39,6 +40,7 @@ export const AskView: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [isListeningMic, setIsListeningMic] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [messages, setMessages] = useState<PatientQuestionMessage[]>([]);
 
   // Coordination Modal trigger state
   const [coordModalState, setCoordModalState] = useState<{
@@ -53,8 +55,14 @@ export const AskView: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const messages = useMemo(() => {
-    return db.getQuestions(patientContext.patientId);
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getQuestions(patientContext.patientId).then((msgs) => {
+      if (isMounted) setMessages(msgs);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [patientContext.patientId]);
 
   const scrollToBottom = () => {
@@ -78,7 +86,7 @@ export const AskView: React.FC = () => {
     setInputText('');
 
     // 1. Add user question message to thread
-    db.addQuestionMessage({
+    const userMsg = await dataService.addQuestionMessage({
       patient_id: patientContext.patientId,
       sender: 'patient',
       sender_name:
@@ -89,6 +97,7 @@ export const AskView: React.FC = () => {
       type: 'question',
     });
 
+    setMessages((prev) => [...prev, userMsg]);
     setIsSending(true);
 
     try {
@@ -100,25 +109,25 @@ export const AskView: React.FC = () => {
       );
 
       if (result.route === 'emergency') {
-        db.addQuestionMessage({
+        const replyText = result.message || 'EMERGENCY: If you are experiencing warning symptoms, dial 112 immediately or seek immediate emergency care.';
+        const botMsg = await dataService.addQuestionMessage({
           patient_id: patientContext.patientId,
           sender: 'system',
           sender_name: 'CarePlus Emergency Alert',
-          text:
-            result.message ||
-            'EMERGENCY: If you are experiencing warning symptoms, dial 112 immediately or seek immediate emergency care.',
+          text: replyText,
           type: 'emergency_warning',
         });
+        setMessages((prev) => [...prev, botMsg]);
+        logPatientQuestion(patientContext.patientId, textToSend, 'escalate', replyText);
       } else if (result.route === 'medicine' || result.route === 'symptom' || result.route === 'other') {
-        db.addQuestionMessage({
+        const replyText = result.answer || (result.route === 'medicine'
+          ? 'Medication-related questions need review by your care team. Medication instructions must never be automated.'
+          : 'Your message requires clinical review by your care team.');
+        const botMsg = await dataService.addQuestionMessage({
           patient_id: patientContext.patientId,
           sender: 'system',
           sender_name: 'CarePlus Coordinator',
-          text:
-            result.answer ||
-            (result.route === 'medicine'
-              ? 'Medication-related questions need review by your care team. Medication instructions must never be automated.'
-              : 'Your message requires clinical review by your care team.'),
+          text: replyText,
           type: 'escalation',
           escalation_reason:
             result.escalation_reason ||
@@ -126,19 +135,29 @@ export const AskView: React.FC = () => {
               ? 'Medication instructions must never be automated.'
               : 'Clinical symptoms require doctor evaluation.'),
         });
+        setMessages((prev) => [...prev, botMsg]);
+        logPatientQuestion(
+          patientContext.patientId,
+          textToSend,
+          result.route === 'medicine' ? 'to_doctor' : 'escalate',
+          replyText
+        );
       } else {
         // Plan answer with citations
-        db.addQuestionMessage({
+        const replyText = result.answer || 'According to your discharge plan, here are your scheduled items.';
+        const botMsg = await dataService.addQuestionMessage({
           patient_id: patientContext.patientId,
           sender: 'system',
           sender_name: 'CarePlus Coordinator',
-          text: result.answer || 'According to your discharge plan, here are your scheduled items.',
+          text: replyText,
           type: 'plan_answer',
           cited_item_ids: result.cited_item_ids || [],
         });
+        setMessages((prev) => [...prev, botMsg]);
+        logPatientQuestion(patientContext.patientId, textToSend, 'to_self', replyText, result.cited_item_ids || []);
       }
     } catch {
-      db.addQuestionMessage({
+      const fallbackMsg = await dataService.addQuestionMessage({
         patient_id: patientContext.patientId,
         sender: 'system',
         sender_name: 'CarePlus Coordinator',
@@ -146,6 +165,7 @@ export const AskView: React.FC = () => {
           'Unable to reach the clinical coordinator. For urgent concerns, please consult Warning Signs or call 112.',
         type: 'escalation',
       });
+      setMessages((prev) => [...prev, fallbackMsg]);
     } finally {
       setIsSending(false);
       refreshData();

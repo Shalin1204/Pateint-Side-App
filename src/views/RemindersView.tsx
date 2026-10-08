@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { t } from '../i18n/translations';
 import { Reminder } from '../types';
 import {
@@ -24,6 +24,7 @@ export const RemindersView: React.FC = () => {
   const [permissionStatus, setPermissionStatus] = useState<string>(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   );
+  const [reminders, setReminders] = useState<Reminder[]>([]);
 
   // Form states for adding reminder
   const [title, setTitle] = useState('');
@@ -31,8 +32,14 @@ export const RemindersView: React.FC = () => {
   const [channel, setChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
   const [category, setCategory] = useState<'medicine' | 'test' | 'appointment' | 'care'>('medicine');
 
-  const reminders = useMemo(() => {
-    return db.getReminders(patientContext.patientId);
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getReminders(patientContext.patientId).then((rems) => {
+      if (isMounted) setReminders(rems);
+    });
+    return () => {
+      isMounted = false;
+    };
   }, [patientContext.patientId]);
 
   const displayedReminders = useMemo(() => {
@@ -72,12 +79,10 @@ export const RemindersView: React.FC = () => {
       preview_text: `CarePlus Alert for ${patientContext.patientName}: Reminder for ${title.trim()} at ${time}. Log as complete in CarePlus app.`,
     };
 
-    // Store in mock/localStorage
-    const currentReminders = db.getReminders(patientContext.patientId);
-    currentReminders.unshift(newReminder);
-    refreshData();
+    setReminders((prev) => [newReminder, ...prev]);
     setShowAddModal(false);
     setTitle('');
+    refreshData();
   };
 
   return (

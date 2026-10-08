@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
+import { useNotification } from './NotificationContext';
 import {
   UserProfile,
   PatientContext,
@@ -30,6 +31,7 @@ interface AuthContextType {
   refreshData: () => void;
   theme: AppTheme;
   setTheme: (t: AppTheme) => void;
+  isSupabaseLive: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -42,10 +44,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isOnline, setIsOnline] = useState<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
-  const [, setDbVersion] = useState<number>(0);
+  const [dbVersion, setDbVersion] = useState<number>(0);
   const [theme, setThemeState] = useState<AppTheme>(
     () => (localStorage.getItem('cp_theme') as AppTheme) || 'dark'
   );
+
+  const { notifyInfo, notifyWarning } = useNotification();
+  const isSupabaseLive = dataService.isUsingRealSupabase();
 
   const setTheme = useCallback((t: AppTheme) => {
     setThemeState(t);
@@ -91,10 +96,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('popstate', parseUrl);
   }, []);
 
-  // Connectivity listeners
+  // Connectivity listeners with notification feedback
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      setIsOnline(true);
+      notifyInfo('Network connection restored.', 'Online');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      notifyWarning('You are currently offline. Cached care plan is available.', 'Offline Mode');
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -103,13 +114,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [notifyInfo, notifyWarning]);
 
   // Database subscription for real-time reactivity
   useEffect(() => {
-    const unsubscribe = db.subscribe(() => {
+    const unsubscribe = dataService.subscribe(() => {
       setDbVersion((v) => v + 1);
-    });
+    }, 'pat_lakshmi_01');
+
     return () => {
       unsubscribe();
     };
@@ -119,37 +131,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setDbVersion((v) => v + 1);
   }, []);
 
-  const currentUser = useMemo(() => {
-    const profile = db.getProfile(currentUserId);
-    if (!profile) {
-      return {
-        id: currentUserId,
-        name: 'Lakshmi Devi',
-        role: 'patient',
-        preferred_language: 'en',
-        email: 'lakshmi.devi@example.com',
-      } as UserProfile;
+  // Loaded user profile state
+  const [loadedUser, setLoadedUser] = useState<UserProfile | null>(null);
+  const [loadedContext, setLoadedContext] = useState<PatientContext | null>(null);
+  const [loadedPermissions, setLoadedPermissions] = useState<TabPermissions | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadIdentity() {
+      const prof = await dataService.getProfile(currentUserId);
+      const ctx = await dataService.resolvePatientContext(currentUserId);
+      const perms = await dataService.getTabPermissions(currentUserId);
+
+      if (isMounted) {
+        if (prof) setLoadedUser(prof);
+        if (ctx) setLoadedContext(ctx);
+        if (perms) setLoadedPermissions(perms);
+      }
     }
-    return profile;
-  }, [currentUserId]);
+
+    loadIdentity();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUserId, dbVersion]);
+
+  const currentUser = useMemo(() => {
+    if (loadedUser) return loadedUser;
+    return {
+      id: currentUserId,
+      name: currentUserId === 'usr_caregiver_ramesh' ? 'Ramesh Kumar' : 'Lakshmi Devi',
+      role: currentUserId === 'usr_caregiver_ramesh' ? 'caregiver' : 'patient',
+      preferred_language: 'en',
+      email: currentUserId === 'usr_caregiver_ramesh' ? 'ramesh.kumar@example.com' : 'lakshmi.devi@example.com',
+    } as UserProfile;
+  }, [loadedUser, currentUserId]);
 
   const patientContext = useMemo(() => {
-    const resolved = db.resolvePatientContext(currentUserId);
-    if (!resolved) {
-      return {
-        userId: currentUserId,
-        role: 'patient',
-        patientId: 'pat_lakshmi_01',
-        patientName: 'Lakshmi Devi',
-        canMarkDone: true,
-      } as PatientContext;
-    }
-    return resolved;
-  }, [currentUserId]);
+    if (loadedContext) return loadedContext;
+    return {
+      userId: currentUserId,
+      role: currentUserId === 'usr_caregiver_ramesh' ? 'caregiver' : 'patient',
+      patientId: 'pat_lakshmi_01',
+      patientName: 'Lakshmi Devi',
+      relationship: currentUserId === 'usr_caregiver_ramesh' ? 'Son' : undefined,
+      canMarkDone: true,
+      hospital: 'Apollo Speciality Hospitals, Greams Road',
+      primaryDoctor: 'Dr. Anita Sharma, MD DM (Cardiology)',
+      dischargeDate: '2026-10-04',
+      dischargeDiagnosis: 'Post-PCI to LAD with Stent, Type 2 Diabetes Mellitus',
+    } as PatientContext;
+  }, [loadedContext, currentUserId]);
 
   const tabPermissions = useMemo(() => {
-    return db.getTabPermissions(currentUserId);
-  }, [currentUserId]);
+    if (loadedPermissions) return loadedPermissions;
+    return {
+      can_see_today: true,
+      can_see_plan: true,
+      can_see_medicines: true,
+      can_see_ask: true,
+      can_see_more: true,
+      can_see_warning_signs: true,
+      can_see_tests: true,
+      can_see_find_care: true,
+      can_see_reminders: true,
+      can_mark_done: true,
+    };
+  }, [loadedPermissions]);
 
   const [language, setLanguageState] = useState<Language>(currentUser.preferred_language || 'en');
 
@@ -160,7 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setLanguage = useCallback(
     (lang: Language) => {
       setLanguageState(lang);
-      db.updateProfileLanguage(currentUserId, lang);
+      dataService.updateProfileLanguage(currentUserId, lang);
     },
     [currentUserId]
   );
@@ -215,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           window.history.pushState(null, '', url);
         } catch {
-          // ignore in sandboxed environments
+          // ignore
         }
       }
     },
@@ -248,7 +297,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const switchPersona = useCallback((userId: 'usr_patient_lakshmi' | 'usr_caregiver_ramesh') => {
-    // Clear pending state before loading next persona
     setSelectedTaskId(null);
     setActiveSubRouteState(null);
     setActiveTabState('today');
@@ -281,6 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         refreshData,
         theme,
         setTheme,
+        isSupabaseLive,
       }}
     >
       {children}

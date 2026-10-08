@@ -1,18 +1,27 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { db } from '../services/supabaseMock';
+import { dataService } from '../services/dataService';
 import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskDetailSheet } from '../components/tasks/TaskDetailSheet';
 import { t } from '../i18n/translations';
-import { ItemCategory } from '../types';
+import { ItemCategory, FollowupItem } from '../types';
 
 export const PlanView: React.FC = () => {
   const { patientContext, language, selectedTaskId, setSelectedTaskId, theme } = useAuth();
   const [categoryFilter, setCategoryFilter] = useState<'all' | ItemCategory>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'overdue'>('all');
+  const [allItems, setAllItems] = useState<FollowupItem[]>([]);
   const isLight = theme === 'light';
 
-  const allItems = useMemo(() => db.getEffectiveItems(patientContext.patientId), [patientContext.patientId]);
+  useEffect(() => {
+    let isMounted = true;
+    dataService.getEffectiveItems(patientContext.patientId).then((items) => {
+      if (isMounted) setAllItems(items);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [patientContext.patientId]);
   const visibleItems = useMemo(() => allItems.filter((i) => i.effective_status !== 'needs_review'), [allItems]);
 
   const filteredItems = useMemo(() =>

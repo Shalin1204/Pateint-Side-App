@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { CoordinationCardType, PatientContext } from '../../types';
-import { db } from '../../services/supabaseMock';
-import { X, Send, AlertCircle, ShieldAlert } from 'lucide-react';
+import { dataService } from '../../services/dataService';
+import { useNotification } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
+import { X, Send, AlertCircle } from 'lucide-react';
 
 interface CreateCoordinationModalProps {
   patientContext: PatientContext;
@@ -21,8 +23,11 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
   const [type, setType] = useState<CoordinationCardType>(initialType);
   const [description, setDescription] = useState(initialDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { notifySuccess, notifyError } = useNotification();
+  const { theme } = useAuth();
+  const isLight = theme === 'light';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim() || isSubmitting) return;
 
@@ -32,17 +37,23 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
         ? `${patientContext.relationship || 'Caregiver'} (${patientContext.userId === 'usr_caregiver_ramesh' ? 'Ramesh Kumar' : 'Caregiver'})`
         : `${patientContext.patientName} (Patient)`;
 
-    db.addCoordinationCard({
-      patientId: patientContext.patientId,
-      type,
-      raisedBy: patientContext.role,
-      raisedByName: actorName,
-      description: description.trim(),
-    });
-
-    setIsSubmitting(false);
-    onCreated();
-    onClose();
+    try {
+      await dataService.addCoordinationCard({
+        patientId: patientContext.patientId,
+        type,
+        raisedBy: patientContext.role,
+        raisedByName: actorName,
+        description: description.trim(),
+      });
+      notifySuccess('Coordination request logged for care team review.', 'Issue Submitted');
+      setIsSubmitting(false);
+      onCreated();
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit issue';
+      notifyError(msg, 'Submission Error');
+      setIsSubmitting(false);
+    }
   };
 
   const types: { value: CoordinationCardType; label: string }[] = [
@@ -56,16 +67,31 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-md bg-slate-900 border border-teal-800/80 rounded-3xl p-5 shadow-2xl text-slate-100 animate-in zoom-in-95 duration-150">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div
+        className="w-full max-w-md rounded-3xl p-5 shadow-2xl border animate-in zoom-in-95 duration-150"
+        style={
+          isLight
+            ? { backgroundColor: '#F2F7FC', borderColor: '#C5DCE8', color: '#18324A' }
+            : { backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f8fafc' }
+        }
+      >
+        <div
+          className="flex items-center justify-between pb-3 border-b"
+          style={isLight ? { borderColor: '#DCEBF3' } : { borderColor: '#1e293b' }}
+        >
           <div>
-            <h3 className="text-sm font-bold text-white tracking-tight">Request Care Team Review</h3>
-            <p className="text-[11px] text-teal-300/80">Submit a coordination issue to hospital team</p>
+            <h3 className="text-sm font-bold tracking-tight" style={isLight ? { color: '#18324A' } : { color: '#ffffff' }}>
+              Request Care Team Review
+            </h3>
+            <p className="text-[11px]" style={isLight ? { color: '#007A73' } : { color: '#2dd4bf' }}>
+              Submit a coordination issue to hospital team
+            </p>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition"
+            className="p-1.5 rounded-xl transition cursor-pointer"
+            style={isLight ? { backgroundColor: '#E1F0F7', color: '#587084' } : { backgroundColor: '#1e293b', color: '#94a3b8' }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -73,13 +99,21 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label
+              className="block text-xs font-semibold mb-1.5"
+              style={isLight ? { color: '#18324A' } : { color: '#cbd5e1' }}
+            >
               Issue Category
             </label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as CoordinationCardType)}
-              className="w-full min-h-[44px] px-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-teal-500"
+              className="w-full min-h-[44px] px-3 rounded-xl border text-xs focus:outline-none"
+              style={
+                isLight
+                  ? { backgroundColor: '#ffffff', borderColor: '#C5DCE8', color: '#18324A' }
+                  : { backgroundColor: '#020817', borderColor: '#1e293b', color: '#f8fafc' }
+              }
             >
               {types.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -90,7 +124,10 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label
+              className="block text-xs font-semibold mb-1.5"
+              style={isLight ? { color: '#18324A' } : { color: '#cbd5e1' }}
+            >
               Issue Description
             </label>
             <textarea
@@ -98,30 +135,55 @@ export const CreateCoordinationModal: React.FC<CreateCoordinationModalProps> = (
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Medicine has not arrived yet, or patient has a query about walking..."
-              className="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 leading-relaxed"
+              className="w-full p-3 rounded-xl border text-xs focus:outline-none leading-relaxed"
+              style={
+                isLight
+                  ? { backgroundColor: '#ffffff', borderColor: '#C5DCE8', color: '#18324A' }
+                  : { backgroundColor: '#020817', borderColor: '#1e293b', color: '#f8fafc' }
+              }
               required
             />
           </div>
 
-          <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-900/60 text-[11px] text-amber-200/90 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          <div
+            className="p-3 rounded-xl border text-[11px] flex items-start gap-2"
+            style={
+              isLight
+                ? { backgroundColor: '#FFF5D9', borderColor: '#F5D57A', color: '#7A4F00' }
+                : { backgroundColor: 'rgba(120,53,15,0.4)', borderColor: 'rgba(146,64,14,0.6)', color: '#fde68a' }
+            }
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={isLight ? { color: '#C58A00' } : { color: '#fbbf24' }} />
             <p className="leading-snug">
               This request will be sent to the cardiology coordinator queue. For immediate chest pain or breathlessness, call 112 directly.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
+          <div
+            className="grid grid-cols-2 gap-2 pt-2 border-t"
+            style={isLight ? { borderColor: '#DCEBF3' } : { borderColor: '#1e293b' }}
+          >
             <button
               type="button"
               onClick={onClose}
-              className="min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+              className="min-h-[44px] rounded-xl text-xs font-semibold transition cursor-pointer"
+              style={
+                isLight
+                  ? { backgroundColor: '#E1F0F7', color: '#587084' }
+                  : { backgroundColor: '#1e293b', color: '#94a3b8' }
+              }
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!description.trim() || isSubmitting}
-              className="min-h-[44px] rounded-xl bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow transition active:scale-98"
+              className="min-h-[44px] rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow transition active:scale-98 cursor-pointer disabled:opacity-50"
+              style={
+                isLight
+                  ? { backgroundColor: '#00AFA3' }
+                  : { backgroundColor: '#0f766e' }
+              }
             >
               <Send className="w-4 h-4" />
               <span>Submit Issue</span>
