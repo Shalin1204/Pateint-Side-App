@@ -27,7 +27,7 @@ export const BottomTabBar: React.FC = () => {
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-teal-900/50 pb-safe shadow-lg"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-teal-900/50 pb-safe shadow-lg no-print"
     >
       <div className="max-w-lg mx-auto grid grid-flow-col auto-cols-fr items-center h-16 px-1">
         {visibleTabs.map((tab) => {

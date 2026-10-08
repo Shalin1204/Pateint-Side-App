@@ -1,11 +1,13 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../services/supabaseMock';
+import { CreateCoordinationModal } from '../components/common/CreateCoordinationModal';
 import { t } from '../i18n/translations';
-import { AlertTriangle, Phone, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Phone, ArrowLeft, ShieldAlert, HeartHandshake, PhoneCall } from 'lucide-react';
 
 export const WarningSignsView: React.FC = () => {
-  const { patientContext, language, setActiveSubRoute } = useAuth();
+  const { patientContext, language, setActiveSubRoute, refreshData } = useAuth();
+  const [showCoordModal, setShowCoordModal] = useState(false);
 
   const warningSigns = useMemo(() => {
     return db.getWarningSigns(patientContext.patientId);
@@ -31,24 +33,34 @@ export const WarningSignsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Emergency Call 112 Sticky Action Banner */}
-      <div className="rounded-3xl bg-amber-950/80 border border-amber-600/90 p-5 shadow-lg text-amber-100">
+      {/* Emergency Call 112 & Contact Care Team Action Banner */}
+      <div className="rounded-3xl bg-amber-950/85 border-2 border-amber-600 p-5 shadow-xl text-amber-100 space-y-4">
         <div className="flex items-center gap-2 font-bold text-sm text-amber-300 uppercase tracking-wide">
           <ShieldAlert className="w-5 h-5 text-amber-400" />
-          <span>Emergency Assistance</span>
+          <span>Immediate Emergency Assistance</span>
         </div>
-        <p className="text-xs leading-relaxed text-amber-200 mt-1 mb-4">
+        <p className="text-xs leading-relaxed text-amber-200">
           {t(language, 'emergency_notice')}
         </p>
 
-        {/* Fixed emergency call button */}
-        <a
-          href="tel:112"
-          className="w-full min-h-[50px] rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98"
-        >
-          <Phone className="w-5 h-5" />
-          <span>{t(language, 'emergency_call_btn')}</span>
-        </a>
+        {/* Dual Actions: Call 112 (Primary) & Contact Care Team */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <a
+            href="tel:112"
+            className="min-h-[50px] rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg transition active:scale-98"
+          >
+            <Phone className="w-5 h-5" />
+            <span>Call 112</span>
+          </a>
+
+          <button
+            onClick={() => setShowCoordModal(true)}
+            className="min-h-[50px] rounded-2xl bg-slate-900 hover:bg-slate-800 border border-amber-600/80 text-amber-200 font-bold text-xs flex items-center justify-center gap-2 transition active:scale-98"
+          >
+            <HeartHandshake className="w-4 h-4 text-amber-400" />
+            <span>Contact Care Team</span>
+          </button>
+        </div>
       </div>
 
       {/* Notice regarding verbatim preservation */}
@@ -74,6 +86,17 @@ export const WarningSignsView: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Contact Care Team Coordination Modal */}
+      {showCoordModal && (
+        <CreateCoordinationModal
+          patientContext={patientContext}
+          initialType="symptom-report"
+          initialDescription="Emergency warning sign observed: "
+          onClose={() => setShowCoordModal(false)}
+          onCreated={() => refreshData()}
+        />
+      )}
     </div>
   );
 };

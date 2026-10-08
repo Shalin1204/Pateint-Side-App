@@ -89,6 +89,32 @@ export const FindCareView: React.FC = () => {
         </button>
       </div>
 
+      {/* Emergency Hotlines Card */}
+      <div className="p-3.5 rounded-2xl bg-amber-950/70 border border-amber-800/80 text-xs text-amber-200 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="font-bold uppercase tracking-wider text-[11px] text-amber-300">
+            Emergency Hotlines
+          </span>
+          <span className="text-[10px] text-amber-300/80 font-mono">24x7 Available</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <a
+            href="tel:112"
+            className="p-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-center flex items-center justify-center gap-1.5 transition"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span>National: 112</span>
+          </a>
+          <a
+            href="tel:1066"
+            className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-amber-600/60 text-amber-300 font-bold text-center flex items-center justify-center gap-1.5 transition"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span>Apollo ER: 1066</span>
+          </a>
+        </div>
+      </div>
+
       {/* Mandatory Disclaimer */}
       <div className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 italic">
         {t(language, 'suggestion_disclaimer')}

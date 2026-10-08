@@ -165,3 +165,84 @@ export type SubRoute =
   | 'reminders'
   | 'settings'
   | 'print';
+
+export type CoordinationCardType =
+  | 'medication-delay'
+  | 'appointment-question'
+  | 'test-delay'
+  | 'symptom-report'
+  | 'unclear-instruction'
+  | 'general-review';
+
+export type CoordinationCardStatus = 'needs-review' | 'acknowledged' | 'resolved';
+
+export interface CoordinationCard {
+  id: string;
+  patientId: string;
+  type: CoordinationCardType;
+  raisedBy: 'patient' | 'caregiver';
+  raisedByName: string;
+  description: string;
+  status: CoordinationCardStatus;
+  createdAt: string;
+  resolvedAt?: string;
+  careTeamNotes?: string;
+}
+
+export type AIRoute = 'PLAN' | 'MEDICINE' | 'SYMPTOM' | 'EMERGENCY' | 'OTHER';
+
+export interface AIClassificationResult {
+  route: AIRoute;
+  rawRoute?: string;
+  confidence?: number;
+  reason?: string;
+}
+
+export interface AIPlanAnswerResult {
+  route: 'PLAN';
+  answer: string;
+  cited_item_ids: string[];
+}
+
+export interface AITranslationResult {
+  translation: string;
+  back_translation: string;
+  verified: boolean;
+  produced_by: 'ai-gemini' | 'doctor';
+  target_language: Language;
+}
+
+export interface AIExtractionItem {
+  category: 'appointment' | 'test' | 'referral' | 'medication' | 'care_instruction' | 'warning_sign' | 'diet' | 'rehab' | 'wound_care';
+  original_text: string;
+  structured: Record<string, unknown>;
+  due_date?: string;
+  date_rule?: string;
+  confidence: number;
+  flags?: string[];
+  status: 'approved' | 'needs-review';
+}
+
+export interface AIExtractionResult {
+  patient_id: string;
+  discharge_summary_id: string;
+  items: AIExtractionItem[];
+  extraction_date: string;
+}
+
+export interface AIDraftedTask {
+  title: string;
+  category: ItemCategory;
+  instructions: string;
+  due_date?: string;
+  confidence: number;
+  status: 'needs-review';
+}
+
+export interface AIVerifyResult {
+  item_id: string;
+  verified: boolean;
+  verifier_role?: string;
+  verified_at: string;
+}
+

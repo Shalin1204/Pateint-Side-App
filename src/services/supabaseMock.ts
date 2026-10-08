@@ -12,6 +12,8 @@ import {
   TabPermissions,
   PatientContext,
   Language,
+  CoordinationCard,
+  CoordinationCardStatus,
 } from '../types';
 
 // Initial synthetic seed data
@@ -500,6 +502,30 @@ const SEED_ACCESS_REQUESTS: AccessRequest[] = [
   },
 ];
 
+const SEED_COORDINATION_CARDS: CoordinationCard[] = [
+  {
+    id: 'coord-001',
+    patientId: 'pat_lakshmi_01',
+    type: 'medication-delay',
+    raisedBy: 'caregiver',
+    raisedByName: 'Ramesh Kumar (Caregiver)',
+    description: 'Ticagrelor refill pharmacy delivery delayed until tomorrow afternoon.',
+    status: 'needs-review',
+    createdAt: '2026-10-08T09:30:00Z',
+  },
+  {
+    id: 'coord-002',
+    patientId: 'pat_lakshmi_01',
+    type: 'appointment-question',
+    raisedBy: 'patient',
+    raisedByName: 'Lakshmi Devi (Patient)',
+    description: 'Requested wheelchair assistance confirmation at Apollo OPD Suite 4 on 15 Oct.',
+    status: 'acknowledged',
+    createdAt: '2026-10-07T14:15:00Z',
+    careTeamNotes: 'Cardiology nursing station acknowledged: wheelchair booked at hospital entry Block 2.',
+  },
+];
+
 // Persistent state class with subscribers for Realtime reactivity
 class CarePlusDatabase {
   private profiles = [...SEED_PROFILES];
@@ -515,6 +541,7 @@ class CarePlusDatabase {
   private questions = [...SEED_QUESTIONS];
   private reminders = [...SEED_REMINDERS];
   private accessRequests = [...SEED_ACCESS_REQUESTS];
+  private coordinationCards = [...SEED_COORDINATION_CARDS];
 
   private listeners: Set<() => void> = new Set();
 
@@ -533,6 +560,7 @@ class CarePlusDatabase {
         if (data.accessRequests) this.accessRequests = data.accessRequests;
         if (data.permissions) this.permissions = data.permissions;
         if (data.profiles) this.profiles = data.profiles;
+        if (data.coordinationCards) this.coordinationCards = data.coordinationCards;
       }
     } catch {
       // Ignore storage error
@@ -548,6 +576,7 @@ class CarePlusDatabase {
         accessRequests: this.accessRequests,
         permissions: this.permissions,
         profiles: this.profiles,
+        coordinationCards: this.coordinationCards,
       };
       localStorage.setItem('careplus_local_db_v1', JSON.stringify(payload));
     } catch {
@@ -790,6 +819,43 @@ class CarePlusDatabase {
     }
   }
 
+  // Coordination Cards (Hospital/Care-Team Review System)
+  public getCoordinationCards(patientId: string): CoordinationCard[] {
+    return this.coordinationCards.filter((c) => c.patientId === patientId);
+  }
+
+  public addCoordinationCard(
+    card: Omit<CoordinationCard, 'id' | 'createdAt' | 'status'> & { status?: CoordinationCardStatus }
+  ): CoordinationCard {
+    const newCard: CoordinationCard = {
+      ...card,
+      id: `coord-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      status: card.status || 'needs-review',
+      createdAt: new Date().toISOString(),
+    };
+    this.coordinationCards.unshift(newCard);
+    this.saveToStorage();
+    return newCard;
+  }
+
+  public updateCoordinationCardStatus(
+    id: string,
+    status: CoordinationCardStatus,
+    careTeamNotes?: string
+  ): boolean {
+    const card = this.coordinationCards.find((c) => c.id === id);
+    if (!card) return false;
+    card.status = status;
+    if (careTeamNotes) {
+      card.careTeamNotes = careTeamNotes;
+    }
+    if (status === 'resolved') {
+      card.resolvedAt = new Date().toISOString();
+    }
+    this.saveToStorage();
+    return true;
+  }
+
   // Reset database for test/demo
   public resetToDefault() {
     this.items = [...SEED_ITEMS];
@@ -798,6 +864,7 @@ class CarePlusDatabase {
     this.accessRequests = [...SEED_ACCESS_REQUESTS];
     this.permissions = { ...SEED_TAB_PERMISSIONS };
     this.profiles = [...SEED_PROFILES];
+    this.coordinationCards = [...SEED_COORDINATION_CARDS];
     localStorage.removeItem('careplus_local_db_v1');
     this.notify();
   }

@@ -13,7 +13,7 @@ export const TopAppBar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-teal-900/40 text-white transition-colors">
+    <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-teal-900/40 text-white transition-colors no-print">
       {/* Caregiver Context Indicator if viewing as caregiver */}
       {patientContext.role === 'caregiver' && (
         <div className="bg-amber-950/80 border-b border-amber-800/60 px-4 py-1.5 flex items-center justify-between text-xs text-amber-200">

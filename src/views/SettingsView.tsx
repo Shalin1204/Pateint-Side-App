@@ -24,6 +24,7 @@ export const SettingsView: React.FC = () => {
     setLanguage,
     setActiveSubRoute,
     refreshData,
+    switchPersona,
   } = useAuth();
 
   const isPatientOwner = currentUser.role === 'patient';
@@ -60,6 +61,62 @@ export const SettingsView: React.FC = () => {
             {t(language, 'settings')}
           </h1>
           <p className="text-xs text-teal-300/80">Preferences & account access controls</p>
+        </div>
+      </div>
+
+      {/* Active User Persona Switcher Section */}
+      <div className="rounded-3xl bg-slate-900 border border-teal-900/40 p-4 shadow-sm text-slate-100 space-y-3">
+        <div className="flex items-center gap-2">
+          <UserCheck className="w-4 h-4 text-teal-400" />
+          <h2 className="text-xs font-bold uppercase tracking-wider text-teal-300">
+            Active App Persona
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => switchPersona('usr_patient_lakshmi')}
+            className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+              currentUser.id === 'usr_patient_lakshmi'
+                ? 'bg-teal-950/90 border-teal-500 text-white shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="w-7 h-7 rounded-full bg-teal-800/60 text-teal-200 flex items-center justify-center text-xs font-bold">
+                LD
+              </span>
+              {currentUser.id === 'usr_patient_lakshmi' && (
+                <Check className="w-4 h-4 text-teal-400" />
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">Lakshmi Devi</div>
+              <div className="text-[11px] text-teal-300/80">Patient Mode</div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => switchPersona('usr_caregiver_ramesh')}
+            className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
+              currentUser.id === 'usr_caregiver_ramesh'
+                ? 'bg-amber-950/90 border-amber-500 text-white shadow-sm'
+                : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="w-7 h-7 rounded-full bg-amber-800/60 text-amber-200 flex items-center justify-center text-xs font-bold">
+                RK
+              </span>
+              {currentUser.id === 'usr_caregiver_ramesh' && (
+                <Check className="w-4 h-4 text-amber-400" />
+              )}
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">Ramesh Kumar</div>
+              <div className="text-[11px] text-amber-300/80">Caregiver Mode</div>
+            </div>
+          </button>
         </div>
       </div>
 
