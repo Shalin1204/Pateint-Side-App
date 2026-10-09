@@ -5,6 +5,7 @@ import { TaskCard } from '../components/tasks/TaskCard';
 import { TaskDetailSheet } from '../components/tasks/TaskDetailSheet';
 import { t } from '../i18n/translations';
 import { ItemCategory, FollowupItem } from '../types';
+import { AlertTriangle, Clock, Calendar, CheckCircle2 } from 'lucide-react';
 
 export const PlanView: React.FC = () => {
   const { patientContext, language, selectedTaskId, setSelectedTaskId, theme } = useAuth();
@@ -22,6 +23,7 @@ export const PlanView: React.FC = () => {
       isMounted = false;
     };
   }, [patientContext.patientId]);
+
   const visibleItems = useMemo(() => allItems.filter((i) => i.effective_status !== 'needs_review'), [allItems]);
 
   const filteredItems = useMemo(() =>
@@ -33,12 +35,99 @@ export const PlanView: React.FC = () => {
     [visibleItems, categoryFilter, statusFilter]
   );
 
-  const phases = [
-    { id: 'phase_1', title: 'DISCHARGE DAY',         dates: '04 – 05 Oct 2026',         badge: 'Hospital Exit & Wound Rest',               items: filteredItems.filter((i) => i.due_date && i.due_date <= '2026-10-05') },
-    { id: 'phase_2', title: 'WEEK 1 RECOVERY',       dates: '06 – 11 Oct 2026 (Active Phase)', badge: 'Vitals, Blood Test & Puncture Inspection', items: filteredItems.filter((i) => i.due_date && i.due_date >= '2026-10-06' && i.due_date <= '2026-10-11'), active: true },
-    { id: 'phase_3', title: 'WEEK 2 FOLLOW-UP',      dates: '12 – 18 Oct 2026',         badge: 'Cardiology Review, 12-Lead ECG & Echo',    items: filteredItems.filter((i) => i.due_date && i.due_date >= '2026-10-12' && i.due_date <= '2026-10-18') },
-    { id: 'phase_4', title: 'MONTH 1 STABILIZATION', dates: '19 Oct – 04 Nov 2026',     badge: 'Cardiac Rehab & Long-term Lifestyle',      items: filteredItems.filter((i) => !i.due_date || i.due_date > '2026-10-18' || i.due_date === 'ongoing') },
-  ];
+  // Today's date string
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+
+  // Overdue recovery tasks check
+  const overdueItems = useMemo(() => {
+    return visibleItems.filter(
+      (i) =>
+        i.effective_status === 'overdue' ||
+        (i.due_date && i.due_date < todayStr && i.effective_status !== 'completed')
+    );
+  }, [visibleItems, todayStr]);
+
+  // Compute dynamic recovery timeline phases from patient's discharge date in DB
+  const phases = useMemo(() => {
+    const rawDischarge = patientContext.dischargeDate || todayStr;
+    const baseDate = new Date(rawDischarge);
+    const validBase = isNaN(baseDate.getTime()) ? new Date() : baseDate;
+
+    const addDays = (d: Date, days: number): Date => {
+      const res = new Date(d);
+      res.setDate(res.getDate() + days);
+      return res;
+    };
+
+    const toIsoDate = (d: Date): string => d.toISOString().split('T')[0];
+
+    const formatDayMonthYear = (d: Date): string => {
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const formatRange = (d1: Date, d2: Date): string => {
+      const day1 = d1.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+      const day2 = d2.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      return `${day1} – ${day2}`;
+    };
+
+    // Phase 1: Discharge Day & Immediate Care (Days 0-1)
+    const p1Start = validBase;
+    const p1End = addDays(validBase, 1);
+    const p1EndStr = toIsoDate(p1End);
+
+    // Phase 2: Week 1 Recovery (Days 2-7)
+    const p2Start = addDays(validBase, 2);
+    const p2End = addDays(validBase, 7);
+    const p2StartStr = toIsoDate(p2Start);
+    const p2EndStr = toIsoDate(p2End);
+
+    // Phase 3: Week 2 Follow-Up (Days 8-14)
+    const p3Start = addDays(validBase, 8);
+    const p3End = addDays(validBase, 14);
+    const p3StartStr = toIsoDate(p3Start);
+    const p3EndStr = toIsoDate(p3End);
+
+    // Phase 4: Month 1 Stabilization & Ongoing (Days 15-30+)
+    const p4Start = addDays(validBase, 15);
+    const p4End = addDays(validBase, 30);
+    const p4StartStr = toIsoDate(p4Start);
+
+    return [
+      {
+        id: 'phase_1',
+        title: 'DISCHARGE DAY & IMMEDIATE CARE',
+        dates: formatRange(p1Start, p1End),
+        badge: 'Hospital Exit, Wound & Puncture Rest',
+        active: todayStr <= p1EndStr,
+        items: filteredItems.filter((i) => i.due_date && i.due_date <= p1EndStr),
+      },
+      {
+        id: 'phase_2',
+        title: 'WEEK 1 RECOVERY',
+        dates: `${formatRange(p2Start, p2End)}${todayStr >= p2StartStr && todayStr <= p2EndStr ? ' (Active Phase)' : ''}`,
+        badge: 'Vitals, Blood Tests & Activity Monitoring',
+        active: todayStr >= p2StartStr && todayStr <= p2EndStr,
+        items: filteredItems.filter((i) => i.due_date && i.due_date >= p2StartStr && i.due_date <= p2EndStr),
+      },
+      {
+        id: 'phase_3',
+        title: 'WEEK 2 CLINICAL FOLLOW-UP',
+        dates: `${formatRange(p3Start, p3End)}${todayStr >= p3StartStr && todayStr <= p3EndStr ? ' (Active Phase)' : ''}`,
+        badge: 'Cardiology Review, 12-Lead ECG & Echo',
+        active: todayStr >= p3StartStr && todayStr <= p3EndStr,
+        items: filteredItems.filter((i) => i.due_date && i.due_date >= p3StartStr && i.due_date <= p3EndStr),
+      },
+      {
+        id: 'phase_4',
+        title: 'MONTH 1 & ONGOING STABILIZATION',
+        dates: `${formatRange(p4Start, p4End)}`,
+        badge: 'Cardiac Rehab & Long-term Lifestyle',
+        active: todayStr >= p4StartStr,
+        items: filteredItems.filter((i) => !i.due_date || i.due_date >= p4StartStr || i.due_date === 'ongoing'),
+      },
+    ];
+  }, [patientContext.dischargeDate, todayStr, filteredItems]);
 
   /* ── style helpers ── */
   const tabs = {
@@ -69,9 +158,47 @@ export const PlanView: React.FC = () => {
           Discharge Recovery Timeline
         </h1>
         <p className="text-xs" style={isLight ? { color: '#007A73' } : { color: 'rgba(94,234,212,0.8)' }}>
-          Structured post-discharge clinical phases
+          {patientContext.dischargeDate
+            ? `Discharge Date: ${new Date(patientContext.dischargeDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}`
+            : 'Structured post-discharge clinical phases'}
         </p>
       </div>
+
+      {/* Overdue Tasks Alert Banner */}
+      {overdueItems.length > 0 && (
+        <div
+          role="alert"
+          className="p-3.5 rounded-2xl border flex items-start gap-3 animate-pulse transition-all shadow-sm"
+          style={
+            isLight
+              ? { backgroundColor: '#FFF5D9', borderColor: '#F5D57A', color: '#8A5D00' }
+              : { backgroundColor: 'rgba(120,53,15,0.4)', borderColor: 'rgba(217,119,6,0.6)', color: '#fde68a' }
+          }
+        >
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-bold flex items-center justify-between">
+              <span>Overdue Care Tasks Alert</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-extrabold uppercase bg-amber-500/20">
+                {overdueItems.length} Overdue
+              </span>
+            </div>
+            <p className="text-[11px] mt-0.5 opacity-90 leading-relaxed">
+              {overdueItems.length === 1
+                ? '1 task has passed its scheduled recovery window. Please complete it or consult your care team.'
+                : `${overdueItems.length} tasks have passed their scheduled recovery window. Please take action.`}
+            </p>
+            {statusFilter !== 'overdue' && (
+              <button
+                onClick={() => setStatusFilter('overdue')}
+                className="text-[11px] font-bold mt-1.5 underline text-amber-700 dark:text-amber-300 cursor-pointer"
+              >
+                View overdue tasks only →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter controls */}
       <div className="space-y-2">
@@ -86,7 +213,7 @@ export const PlanView: React.FC = () => {
             <button
               key={f.id}
               onClick={() => setCategoryFilter(f.id as typeof categoryFilter)}
-              className="min-h-[40px] px-3.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition"
+              className="min-h-[40px] px-3.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer"
               style={categoryFilter === f.id ? tabs.active : tabs.inactive}
             >
               {t(language, f.key)}
@@ -99,13 +226,13 @@ export const PlanView: React.FC = () => {
           {[
             { id: 'all', label: 'All Statuses' },
             { id: 'pending', label: 'Pending' },
-            { id: 'overdue', label: 'Overdue' },
+            { id: 'overdue', label: `Overdue (${overdueItems.length})` },
             { id: 'completed', label: 'Completed' },
           ].map((st) => (
             <button
               key={st.id}
               onClick={() => setStatusFilter(st.id as typeof statusFilter)}
-              className="text-[11px] px-2.5 py-1 rounded-lg transition whitespace-nowrap"
+              className="text-[11px] px-2.5 py-1 rounded-lg transition whitespace-nowrap cursor-pointer"
               style={statusFilter === st.id ? tabs.statusActive : tabs.statusInactive}
             >
               {st.label}
@@ -164,7 +291,7 @@ export const PlanView: React.FC = () => {
                     ? { backgroundColor: '#F0F8FD', border: '1px solid #C5DCE8', color: '#7A9AAD' }
                     : { backgroundColor: 'rgba(15,23,42,0.4)', border: '1px solid rgba(30,41,59,0.6)', color: '#475569' }}
                 >
-                  No items scheduled under selected filters.
+                  No items scheduled under this phase.
                 </div>
               ) : (
                 phase.items.map((item) => (

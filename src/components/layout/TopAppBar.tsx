@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Language } from '../../types';
-import { AlertTriangle, Globe, User, Users, Check, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Globe, User, Users, Check, ChevronDown, LogOut } from 'lucide-react';
 import { t } from '../../i18n/translations';
 
 export const TopAppBar: React.FC = () => {
-  const { patientContext, language, setLanguage, currentUser, switchPersona, setActiveSubRoute, activeSubRoute } = useAuth();
+  const { patientContext, language, setLanguage, currentUser, switchPersona, setActiveSubRoute, activeSubRoute, logout } = useAuth();
   const [isRoleOpen, setIsRoleOpen] = useState(false);
 
   const langs: { code: Language; label: string; short: string }[] = [
@@ -15,6 +15,12 @@ export const TopAppBar: React.FC = () => {
   ];
 
   const isCaregiver = patientContext.role === 'caregiver';
+  const patientInitials = (patientContext.patientName || 'Patient')
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
   return (
     <header
@@ -63,7 +69,7 @@ export const TopAppBar: React.FC = () => {
           <button
             onClick={() => setIsRoleOpen(!isRoleOpen)}
             aria-label="Switch user persona"
-            className={`flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border text-xs font-semibold transition-all ${
+            className={`flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
               isCaregiver
                 ? 'bg-amber-950/70 border-amber-700/60 text-amber-200'
                 : 'bg-teal-950/70 border-teal-700/60 text-teal-100'
@@ -81,43 +87,62 @@ export const TopAppBar: React.FC = () => {
           {isRoleOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setIsRoleOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-slate-900 border border-slate-700/80 p-1.5 shadow-2xl z-50">
+              <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl bg-slate-900 border border-slate-700/80 p-1.5 shadow-2xl z-50">
                 <div className="px-2.5 py-1.5 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                  Switch Persona
+                  Active Profile / Persona
                 </div>
-                {[
-                  { id: 'usr_patient_lakshmi', initials: 'LD', name: 'Lakshmi Devi', role: 'Patient (Self)', color: 'teal' },
-                  { id: 'usr_caregiver_ramesh', initials: 'RK', name: 'Ramesh Kumar', role: 'Caregiver (Son)', color: 'amber' },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => { switchPersona(p.id as any); setIsRoleOpen(false); }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left mt-0.5 transition-all ${
-                      currentUser.id === p.id
-                        ? p.color === 'teal'
-                          ? 'bg-teal-950/80 border border-teal-800/50'
-                          : 'bg-amber-950/80 border border-amber-800/50'
-                        : 'hover:bg-slate-800/80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                        p.color === 'teal' ? 'bg-teal-800/50 text-teal-300' : 'bg-amber-800/50 text-amber-300'
-                      }`}>
-                        {p.initials}
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold text-white">{p.name}</div>
-                        <div className={`text-[11px] ${p.color === 'teal' ? 'text-teal-400' : 'text-amber-400'}`}>
-                          {p.role}
-                        </div>
-                      </div>
+
+                {/* Patient option */}
+                <button
+                  onClick={() => { switchPersona('patient'); setIsRoleOpen(false); }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left mt-0.5 transition-all cursor-pointer ${
+                    !isCaregiver
+                      ? 'bg-teal-950/80 border border-teal-800/50'
+                      : 'hover:bg-slate-800/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-teal-800/50 text-teal-300">
+                      {patientInitials}
                     </div>
-                    {currentUser.id === p.id && (
-                      <Check className={`w-4 h-4 shrink-0 ${p.color === 'teal' ? 'text-teal-400' : 'text-amber-400'}`} />
-                    )}
-                  </button>
-                ))}
+                    <div>
+                      <div className="text-xs font-semibold text-white">{patientContext.patientName}</div>
+                      <div className="text-[10px] text-teal-400">Patient (Self)</div>
+                    </div>
+                  </div>
+                  {!isCaregiver && <Check className="w-3.5 h-3.5 text-teal-400" />}
+                </button>
+
+                {/* Caregiver option */}
+                <button
+                  onClick={() => { switchPersona('caregiver'); setIsRoleOpen(false); }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left mt-1 transition-all cursor-pointer ${
+                    isCaregiver
+                      ? 'bg-amber-950/80 border border-amber-800/50'
+                      : 'hover:bg-slate-800/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-amber-800/50 text-amber-300">
+                      CG
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-white">Caregiver Delegate</div>
+                      <div className="text-[10px] text-amber-400">Family Member Mode</div>
+                    </div>
+                  </div>
+                  {isCaregiver && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                </button>
+
+                {/* Divider and Log Out */}
+                <div className="my-1.5 border-t border-slate-800" />
+                <button
+                  onClick={() => { setIsRoleOpen(false); logout(); }}
+                  className="w-full flex items-center gap-2 p-2 rounded-xl text-left text-xs font-semibold text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
               </div>
             </>
           )}

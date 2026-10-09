@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { MobileAppShell } from './components/layout/MobileAppShell';
 import { ToastContainer } from './components/common/ToastContainer';
+import { LoginView } from './components/auth/LoginView';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,13 +20,23 @@ const queryClient = new QueryClient({
   },
 });
 
+const MainAppContent: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <LoginView />;
+  }
+
+  return <MobileAppShell />;
+};
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <AuthProvider>
           <ToastContainer />
-          <MobileAppShell />
+          <MainAppContent />
         </AuthProvider>
       </NotificationProvider>
     </QueryClientProvider>

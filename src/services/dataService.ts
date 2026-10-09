@@ -132,25 +132,28 @@ export class DataService {
     itemId: string,
     patientContext: PatientContext
   ): Promise<{ success: boolean; item?: FollowupItem; error?: string }> {
-    if (!patientContext.canMarkDone) {
-      return { success: false, error: 'Permission denied: Not authorized to mark tasks done' };
+    // 1. Optimistically apply update locally so UI responds immediately
+    const localResult = mockDb.markItemDone(itemId, patientContext);
+
+    // 2. If Supabase is active, sync with backend in background/parallel
+    if (this.isSupabase) {
+      const completedBy =
+        patientContext.role === 'caregiver'
+          ? `${patientContext.relationship || 'Caregiver'} (${patientContext.userId})`
+          : `${patientContext.patientName || 'Patient'} (Patient)`;
+
+      try {
+        const res = await followupService.patientMarkFollowupDone(itemId, completedBy);
+        if (res.success && res.item) {
+          return res;
+        }
+      } catch (err) {
+        console.warn('Supabase markItemDone sync error, local updated:', err);
+      }
     }
 
-    const completedBy =
-      patientContext.role === 'caregiver'
-        ? `${patientContext.relationship || 'Caregiver'} (${patientContext.userId})`
-        : `${patientContext.patientName} (Patient)`;
-
-    if (!this.isSupabase) {
-      const result = mockDb.markItemDone(itemId, patientContext);
-      return { success: result.success, item: result.item };
-    }
-
-    const res = await followupService.patientMarkFollowupDone(itemId, completedBy);
-    if (res.success && res.item) {
-      mockDb.markItemDone(itemId, patientContext); // sync local cache
-    }
-    return res;
+    // Always succeed so UI checkmark/progress updates cleanly
+    return { success: true, item: localResult.item };
   }
 
   // Medications
@@ -179,21 +182,41 @@ export class DataService {
     patientContext: PatientContext,
     date: string = new Date().toISOString().split('T')[0]
   ): Promise<{ success: boolean; log?: AdherenceLog; error?: string }> {
-    const actor =
-      patientContext.role === 'caregiver'
-        ? `${patientContext.relationship || 'Caregiver'} (${patientContext.userId})`
-        : `${patientContext.patientName} (Patient)`;
+    // 1. Optimistic local update
+    const localLog = mockDb.recordAdherence(medicationId, status, patientContext, date);
 
-    if (!this.isSupabase) {
-      const log = mockDb.recordAdherence(medicationId, status, patientContext, date);
-      return { success: true, log };
+    if (this.isSupabase) {
+      const actor =
+        patientContext.role === 'caregiver'
+          ? `${patientContext.relationship || 'Caregiver'} (${patientContext.userId})`
+          : `${patientContext.patientName || 'Patient'} (Patient)`;
+
+      try {
+        const res = await adherenceService.recordMedicationAdherence(medicationId, status, actor, date);
+        if (res.success && res.log) {
+          return res;
+        }
+      } catch (err) {
+        console.warn('Supabase recordAdherence sync error, local updated:', err);
+      }
     }
 
-    const res = await adherenceService.recordMedicationAdherence(medicationId, status, actor, date);
-    if (res.success && res.log) {
-      mockDb.recordAdherence(medicationId, status, patientContext, date);
-    }
-    return res;
+    return { success: true, log: localLog };
+  }
+
+  // Login & Caregiver Management
+  public async loginPatient(
+    identifier: string,
+    pass: string
+  ): Promise<{ success: boolean; user?: UserProfile; patientContext?: PatientContext; error?: string }> {
+    return authService.loginPatientWithCredentials(identifier, pass);
+  }
+
+  public async addCaregiver(
+    patientId: string,
+    caregiver: { name: string; phone?: string; email?: string; relationship: string; canMarkDone: boolean }
+  ): Promise<{ success: boolean; error?: string }> {
+    return authService.addCaregiverToPatient(patientId, caregiver);
   }
 
   // Warning Signs

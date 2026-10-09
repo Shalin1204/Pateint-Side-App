@@ -12,7 +12,15 @@ import {
 
 export type AppTheme = 'dark' | 'light';
 
+interface SavedSession {
+  user: UserProfile;
+  patientContext: PatientContext;
+}
+
 interface AuthContextType {
+  isAuthenticated: boolean;
+  login: (identifier: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => void;
   currentUser: UserProfile;
   patientContext: PatientContext;
   tabPermissions: TabPermissions;
@@ -24,7 +32,7 @@ interface AuthContextType {
   setActiveSubRoute: (route: SubRoute | null) => void;
   selectedTaskId: string | null;
   setSelectedTaskId: (id: string | null) => void;
-  switchPersona: (userId: 'usr_patient_lakshmi' | 'usr_caregiver_ramesh') => void;
+  switchPersona: (role: 'patient' | 'caregiver') => void;
   isOnline: boolean;
   canSeeTab: (tab: ActiveTab) => boolean;
   canSeeSubRoute: (route: SubRoute) => boolean;
@@ -32,12 +40,36 @@ interface AuthContextType {
   theme: AppTheme;
   setTheme: (t: AppTheme) => void;
   isSupabaseLive: boolean;
+  addCaregiver: (caregiver: {
+    name: string;
+    relationship: string;
+    phone?: string;
+    email?: string;
+    canMarkDone: boolean;
+  }) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const STORAGE_SESSION_KEY = 'careplus_auth_session';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUserId, setCurrentUserId] = useState<string>('usr_patient_lakshmi');
+  // Session / Authentication state
+  const [session, setSession] = useState<SavedSession | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(STORAGE_SESSION_KEY);
+        if (stored) {
+          return JSON.parse(stored) as SavedSession;
+        }
+      } catch (err) {
+        console.warn('Failed to parse saved session:', err);
+      }
+    }
+    return null;
+  });
+
+  const [activePersonaRole, setActivePersonaRole] = useState<'patient' | 'caregiver'>('patient');
   const [activeTab, setActiveTabState] = useState<ActiveTab>('today');
   const [activeSubRoute, setActiveSubRouteState] = useState<SubRoute | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -49,13 +81,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     () => (localStorage.getItem('cp_theme') as AppTheme) || 'dark'
   );
 
-  const { notifyInfo, notifyWarning } = useNotification();
+  const { notifyInfo, notifyWarning, notifySuccess } = useNotification();
   const isSupabaseLive = dataService.isUsingRealSupabase();
 
   const setTheme = useCallback((t: AppTheme) => {
     setThemeState(t);
     localStorage.setItem('cp_theme', t);
   }, []);
+
+  // Login method
+  const login = useCallback(async (identifier: string, pass: string) => {
+    const res = await dataService.loginPatient(identifier, pass);
+    if (res.success && res.user && res.patientContext) {
+      const newSession: SavedSession = {
+        user: res.user,
+        patientContext: res.patientContext,
+      };
+      setSession(newSession);
+      setActivePersonaRole('patient');
+      try {
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(newSession));
+      } catch (err) {
+        console.warn('Failed to persist session:', err);
+      }
+      notifySuccess(`Welcome back, ${res.user.name}!`, 'Signed In');
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Invalid credentials' };
+  }, [notifySuccess]);
+
+  // Logout method
+  const logout = useCallback(() => {
+    setSession(null);
+    setActivePersonaRole('patient');
+    try {
+      localStorage.removeItem(STORAGE_SESSION_KEY);
+    } catch {
+      // ignore
+    }
+    notifyInfo('You have been logged out.', 'Signed Out');
+  }, [notifyInfo]);
 
   // Synchronize route state with browser URL path and history
   useEffect(() => {
@@ -96,7 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('popstate', parseUrl);
   }, []);
 
-  // Connectivity listeners with notification feedback
+  // Connectivity listeners
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -118,74 +183,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Database subscription for real-time reactivity
   useEffect(() => {
+    const patientId = session?.patientContext?.patientId || 'pat_lakshmi_01';
     const unsubscribe = dataService.subscribe(() => {
       setDbVersion((v) => v + 1);
-    }, 'pat_lakshmi_01');
+    }, patientId);
 
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [session?.patientContext?.patientId]);
 
   const refreshData = useCallback(() => {
     setDbVersion((v) => v + 1);
   }, []);
 
-  // Loaded user profile state
-  const [loadedUser, setLoadedUser] = useState<UserProfile | null>(null);
-  const [loadedContext, setLoadedContext] = useState<PatientContext | null>(null);
-  const [loadedPermissions, setLoadedPermissions] = useState<TabPermissions | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadIdentity() {
-      const prof = await dataService.getProfile(currentUserId);
-      const ctx = await dataService.resolvePatientContext(currentUserId);
-      const perms = await dataService.getTabPermissions(currentUserId);
-
-      if (isMounted) {
-        if (prof) setLoadedUser(prof);
-        if (ctx) setLoadedContext(ctx);
-        if (perms) setLoadedPermissions(perms);
-      }
+  // Compute active user and patient context based on current logged in user & selected persona
+  const currentUser = useMemo((): UserProfile => {
+    if (!session) {
+      return {
+        id: 'guest',
+        name: 'Patient',
+        role: 'patient',
+        preferred_language: 'en',
+      };
     }
 
-    loadIdentity();
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUserId, dbVersion]);
+    if (activePersonaRole === 'caregiver') {
+      return {
+        id: `cg_${session.user.id}`,
+        name: 'Caregiver Delegate',
+        role: 'caregiver',
+        preferred_language: session.user.preferred_language || 'en',
+        email: `caregiver@careplus.health`,
+      };
+    }
 
-  const currentUser = useMemo(() => {
-    if (loadedUser) return loadedUser;
-    return {
-      id: currentUserId,
-      name: currentUserId === 'usr_caregiver_ramesh' ? 'Ramesh Kumar' : 'Lakshmi Devi',
-      role: currentUserId === 'usr_caregiver_ramesh' ? 'caregiver' : 'patient',
-      preferred_language: 'en',
-      email: currentUserId === 'usr_caregiver_ramesh' ? 'ramesh.kumar@example.com' : 'lakshmi.devi@example.com',
-    } as UserProfile;
-  }, [loadedUser, currentUserId]);
+    return session.user;
+  }, [session, activePersonaRole]);
 
-  const patientContext = useMemo(() => {
-    if (loadedContext) return loadedContext;
-    return {
-      userId: currentUserId,
-      role: currentUserId === 'usr_caregiver_ramesh' ? 'caregiver' : 'patient',
-      patientId: 'pat_lakshmi_01',
-      patientName: 'Lakshmi Devi',
-      relationship: currentUserId === 'usr_caregiver_ramesh' ? 'Son' : undefined,
-      canMarkDone: true,
-      hospital: 'Apollo Speciality Hospitals, Greams Road',
-      primaryDoctor: 'Dr. Anita Sharma, MD DM (Cardiology)',
-      dischargeDate: '2026-10-04',
-      dischargeDiagnosis: 'Post-PCI to LAD with Stent, Type 2 Diabetes Mellitus',
-    } as PatientContext;
-  }, [loadedContext, currentUserId]);
+  const patientContext = useMemo((): PatientContext => {
+    if (!session) {
+      return {
+        userId: 'pat_default',
+        role: 'patient',
+        patientId: 'pat_default',
+        patientName: 'Patient',
+        canMarkDone: true,
+        hospital: 'Apollo Speciality Hospitals',
+        primaryDoctor: 'Dr. Anita Sharma, MD DM',
+        dischargeDate: new Date().toISOString().split('T')[0],
+        dischargeDiagnosis: 'Post-Discharge Recovery Care Plan',
+      };
+    }
 
-  const tabPermissions = useMemo(() => {
-    if (loadedPermissions) return loadedPermissions;
+    if (activePersonaRole === 'caregiver') {
+      return {
+        ...session.patientContext,
+        userId: `cg_${session.user.id}`,
+        role: 'caregiver',
+        relationship: 'Family Member',
+        canMarkDone: true,
+      };
+    }
+
+    return session.patientContext;
+  }, [session, activePersonaRole]);
+
+  const tabPermissions = useMemo((): TabPermissions => {
     return {
       can_see_today: true,
       can_see_plan: true,
@@ -198,20 +262,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       can_see_reminders: true,
       can_mark_done: true,
     };
-  }, [loadedPermissions]);
+  }, []);
 
   const [language, setLanguageState] = useState<Language>(currentUser.preferred_language || 'en');
 
   useEffect(() => {
-    setLanguageState(currentUser.preferred_language || 'en');
-  }, [currentUser]);
+    if (currentUser.preferred_language) {
+      setLanguageState(currentUser.preferred_language);
+    }
+  }, [currentUser.preferred_language]);
 
   const setLanguage = useCallback(
     (lang: Language) => {
       setLanguageState(lang);
-      dataService.updateProfileLanguage(currentUserId, lang);
+      if (session?.user?.id) {
+        dataService.updateProfileLanguage(session.user.id, lang);
+      }
     },
-    [currentUserId]
+    [session]
   );
 
   const canSeeTab = useCallback(
@@ -296,11 +364,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const switchPersona = useCallback((userId: 'usr_patient_lakshmi' | 'usr_caregiver_ramesh') => {
+  const switchPersona = useCallback((role: 'patient' | 'caregiver') => {
     setSelectedTaskId(null);
     setActiveSubRouteState(null);
     setActiveTabState('today');
-    setCurrentUserId(userId);
+    setActivePersonaRole(role);
     try {
       window.history.pushState(null, '', '/app');
     } catch {
@@ -308,9 +376,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const addCaregiver = useCallback(
+    async (caregiver: {
+      name: string;
+      relationship: string;
+      phone?: string;
+      email?: string;
+      canMarkDone: boolean;
+    }) => {
+      if (!session) return { success: false, error: 'Not authenticated' };
+      const res = await dataService.addCaregiver(session.patientContext.patientId, caregiver);
+      if (res.success) {
+        notifySuccess(`Added ${caregiver.name} (${caregiver.relationship}) to Care Team.`, 'Caregiver Added');
+        refreshData();
+      }
+      return res;
+    },
+    [session, notifySuccess, refreshData]
+  );
+
   return (
     <AuthContext.Provider
       value={{
+        isAuthenticated: !!session,
+        login,
+        logout,
         currentUser,
         patientContext,
         tabPermissions,
@@ -330,6 +420,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         theme,
         setTheme,
         isSupabaseLive,
+        addCaregiver,
       }}
     >
       {children}

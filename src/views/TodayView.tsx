@@ -58,7 +58,8 @@ export const TodayView: React.FC = () => {
     dataService.getMedications(patId).then((meds) => {
       if (isMounted) setMedications(meds);
     });
-    dataService.getAdherenceLogs(patId, '2026-10-08').then((logs) => {
+    const todayIso = new Date().toISOString().split('T')[0];
+    dataService.getAdherenceLogs(patId, todayIso).then((logs) => {
       if (isMounted) setAdherenceLogs(logs);
     });
     dataService.getReminders(patId).then((rems) => {
