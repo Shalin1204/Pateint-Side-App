@@ -205,6 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: 'Patient',
         role: 'patient',
         preferred_language: 'en',
+        email: '',
       };
     }
 

@@ -211,6 +211,7 @@ export type SubRoute =
 
 export type CoordinationCardType =
   | 'medication-delay'
+  | 'medication-not-taken'
   | 'appointment-question'
   | 'test-delay'
   | 'symptom-report'

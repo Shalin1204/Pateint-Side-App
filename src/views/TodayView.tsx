@@ -74,13 +74,26 @@ export const TodayView: React.FC = () => {
     };
   }, [patientContext.patientId]);
 
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const todayFormatted = useMemo(() => new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), []);
+
   const takenMedsCount = useMemo(() => adherenceLogs.filter((l) => l.status === 'taken').length, [adherenceLogs]);
   const reviewCount = useMemo(() => allItems.filter((i) => i.effective_status === 'needs_review').length, [allItems]);
   const visibleItems = useMemo(() => allItems.filter((i) => i.effective_status !== 'needs_review'), [allItems]);
-  const dueTodayItems = useMemo(() => visibleItems.filter((i) => (i.section === 'DUE TODAY' || i.section === 'DAILY CARE') && i.effective_status !== 'overdue'), [visibleItems]);
+  
+  // Due today includes items scheduled for today or daily care
+  const dueTodayItems = useMemo(
+    () => visibleItems.filter((i) => (i.section === 'DUE TODAY' || i.section === 'DAILY CARE' || i.due_date === todayStr) && i.effective_status !== 'overdue'),
+    [visibleItems, todayStr]
+  );
   const completedTodayCount = useMemo(() => dueTodayItems.filter((i) => i.effective_status === 'completed').length, [dueTodayItems]);
   const overdueItems = useMemo(() => visibleItems.filter((i) => i.section === 'OVERDUE' || i.effective_status === 'overdue'), [visibleItems]);
-  const upcomingAppointments = useMemo(() => visibleItems.filter((i) => i.section === 'NEXT UP' && i.effective_status !== 'overdue'), [visibleItems]);
+  
+  // Upcoming appointments & scheduled followups (category='appointment' or section='NEXT UP')
+  const upcomingAppointments = useMemo(
+    () => visibleItems.filter((i) => (i.section === 'NEXT UP' || i.category === 'appointment') && !dueTodayItems.some((d) => d.id === i.id) && i.effective_status !== 'overdue'),
+    [visibleItems, dueTodayItems]
+  );
 
   const totalTrackedItems = dueTodayItems.length + medications.length;
   const totalCompletedItems = completedTodayCount + takenMedsCount;
@@ -184,7 +197,7 @@ export const TodayView: React.FC = () => {
               </span>
               <span style={isLight ? { color: '#7A9AAD' } : { color: '#94a3b8' }}>·</span>
               <span className="font-mono text-[11px]" style={isLight ? { color: '#587084' } : { color: '#cbd5e1' }}>
-                08 Oct 2026
+                {todayFormatted}
               </span>
             </div>
 

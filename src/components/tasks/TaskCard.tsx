@@ -15,6 +15,7 @@ import {
   Clock,
   AlertCircle,
   Check,
+  Calendar,
 } from 'lucide-react';
 
 interface TaskCardProps {
@@ -162,17 +163,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
       className="relative w-full rounded-2xl p-4 transition-all text-left cursor-pointer active:scale-[0.99]"
       style={cardStyle}
     >
-      {/* Date + Status row */}
+      {/* Date + Category + Status row */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div
-          className="flex items-center gap-2 text-xs font-medium truncate"
+          className="flex items-center gap-1.5 text-xs font-medium truncate"
           style={isLight ? { color: '#7A9AAD' } : { color: '#64748b' }}
         >
+          {item.category === 'appointment' ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider"
+              style={isLight
+                ? { backgroundColor: '#E8F3FC', color: '#1E4D78', border: '1px solid #B8D4EA' }
+                : { backgroundColor: 'rgba(30,58,138,0.6)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.4)' }}
+            >
+              <Calendar className="w-3 h-3" />
+              <span>Appointment</span>
+            </span>
+          ) : null}
           <span>{item.due_date}</span>
           {item.due_time && (
             <>
               <span aria-hidden="true">·</span>
-              <span>{item.due_time}</span>
+              <span className="font-semibold" style={isLight ? { color: '#18324A' } : { color: '#e2e8f0' }}>{item.due_time}</span>
             </>
           )}
         </div>

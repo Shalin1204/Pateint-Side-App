@@ -39,6 +39,20 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
     if (res.success) {
       notifySuccess(`Recorded dose of ${medication.drug_name} as Not Taken.`, 'Medication Adherence');
       refreshData();
+
+      // Create a coordination card alert in the DB so the care team is notified
+      try {
+        await dataService.addCoordinationCard({
+          patientId: patientContext.patientId,
+          type: 'medication-not-taken',
+          raisedBy: patientContext.role === 'caregiver' ? 'caregiver' : 'patient',
+          raisedByName: patientContext.patientName || 'Patient',
+          description: `${patientContext.patientName || 'Patient'} marked "${medication.drug_name}" (${medication.dose || 'dose N/A'}) as NOT TAKEN on ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}.`,
+          careTeamNotes: undefined,
+        });
+      } catch (err) {
+        console.warn('Failed to create coordination card for not-taken medication:', err);
+      }
     } else {
       notifyError(res.error || 'Failed to save medication adherence log.', 'Save Failed');
     }

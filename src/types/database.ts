@@ -353,6 +353,7 @@ export interface DbCaregiverAccessRequest {
 
 export type DbCoordinationCardType =
   | 'medication-delay'
+  | 'medication-not-taken'
   | 'appointment-question'
   | 'test-delay'
   | 'symptom-report'
