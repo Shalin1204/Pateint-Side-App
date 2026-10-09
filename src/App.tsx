@@ -11,6 +11,8 @@ import { MobileAppShell } from './components/layout/MobileAppShell';
 import { ToastContainer } from './components/common/ToastContainer';
 import { LoginView } from './components/auth/LoginView';
 
+import { PWAInstallFloatingBanner } from './components/pwa/PWAInstallFloatingBanner';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -23,11 +25,12 @@ const queryClient = new QueryClient({
 const MainAppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
-  if (!isAuthenticated) {
-    return <LoginView />;
-  }
-
-  return <MobileAppShell />;
+  return (
+    <>
+      {!isAuthenticated ? <LoginView /> : <MobileAppShell />}
+      <PWAInstallFloatingBanner />
+    </>
+  );
 };
 
 export default function App() {

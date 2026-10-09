@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Heart, ArrowRight, Phone, Mail, Lock, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Heart, ArrowRight, Phone, Mail, Lock, Sparkles, CheckCircle2, AlertCircle, Download, Smartphone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { usePWAInstall } from '../pwa/usePWAInstall';
 
 export const LoginView: React.FC = () => {
   const { login, theme } = useAuth();
+  const { isInstalled, install, isInstallable } = usePWAInstall();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -50,23 +52,37 @@ export const LoginView: React.FC = () => {
       >
         {/* Header Branding */}
         <div className="pt-6">
-          <div className="flex items-center gap-2.5 mb-6">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-teal-500/20">
-              <Heart className="w-6 h-6 fill-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--cp-text)' }}>
-                  CarePlus
-                </span>
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-300 border border-teal-500/20">
-                  Patient Portal
-                </span>
+          <div className="flex items-center justify-between gap-2.5 mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-teal-500/20">
+                <Heart className="w-6 h-6 fill-white" />
               </div>
-              <p className="text-xs" style={{ color: 'var(--cp-text-muted)' }}>
-                Post-Discharge Recovery & Care Plan
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-lg tracking-tight" style={{ color: 'var(--cp-text)' }}>
+                    CarePlus
+                  </span>
+                  <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-300 border border-teal-500/20">
+                    Patient Portal
+                  </span>
+                </div>
+                <p className="text-xs" style={{ color: 'var(--cp-text-muted)' }}>
+                  Post-Discharge Recovery & Care Plan
+                </p>
+              </div>
             </div>
+
+            {!isInstalled && (
+              <button
+                type="button"
+                onClick={() => install()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 active:scale-95 shadow-md shadow-teal-600/20 transition-all cursor-pointer"
+                title="Install App to Home Screen"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Install</span>
+              </button>
+            )}
           </div>
 
           <div className="mb-6">

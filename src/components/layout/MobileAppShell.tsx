@@ -14,7 +14,6 @@ import { FindCareView } from '../../views/FindCareView';
 import { RemindersView } from '../../views/RemindersView';
 import { SettingsView } from '../../views/SettingsView';
 import { PrintView } from '../../views/PrintView';
-import { PWAInstallFloatingBanner } from '../pwa/PWAInstallFloatingBanner';
 
 export const MobileAppShell: React.FC = () => {
   const { activeTab, activeSubRoute, theme } = useAuth();
@@ -95,9 +94,6 @@ export const MobileAppShell: React.FC = () => {
 
         {/* Bottom Navigation Tab Bar */}
         <BottomTabBar />
-
-        {/* Floating 1-Click Install Banner for Chrome / Mobile web visitors */}
-        <PWAInstallFloatingBanner />
       </div>
     </div>
   );
