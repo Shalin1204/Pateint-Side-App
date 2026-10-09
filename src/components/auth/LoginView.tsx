@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Heart, ArrowRight, Phone, Mail, Lock, Sparkles, CheckCircle2, AlertCircle, Download, Smartphone } from 'lucide-react';
+import { ShieldCheck, Heart, ArrowRight, Phone, Mail, Lock, CheckCircle2, AlertCircle, Download, Smartphone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { usePWAInstall } from '../pwa/usePWAInstall';
 
@@ -29,12 +29,6 @@ export const LoginView: React.FC = () => {
     if (!res.success) {
       setErrorMsg(res.error || 'Login failed. Please check your credentials.');
     }
-  };
-
-  const handleQuickDemo = (idVal: string, passVal: string) => {
-    setIdentifier(idVal);
-    setPassword(passVal);
-    setErrorMsg(null);
   };
 
   return (
@@ -167,42 +161,6 @@ export const LoginView: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Credentials */}
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: 'var(--cp-border)' }}>
-            <div className="flex items-center gap-1.5 mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-teal-500" />
-              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--cp-text-muted)' }}>
-                Quick Test Credentials
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('lakshmi.devi@example.com', '9876543210')}
-                className="p-3 rounded-2xl border text-left text-xs transition hover:border-teal-500 cursor-pointer"
-                style={{
-                  backgroundColor: isLight ? '#f0f7fb' : '#0f172a',
-                  borderColor: isLight ? '#C7DDE8' : 'rgba(30,41,59,0.8)',
-                }}
-              >
-                <div className="font-bold text-xs" style={{ color: 'var(--cp-text)' }}>Lakshmi Devi</div>
-                <div className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--cp-text-muted)' }}>9876543210</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('rajesh.sharma@example.com', '9123456780')}
-                className="p-3 rounded-2xl border text-left text-xs transition hover:border-teal-500 cursor-pointer"
-                style={{
-                  backgroundColor: isLight ? '#f0f7fb' : '#0f172a',
-                  borderColor: isLight ? '#C7DDE8' : 'rgba(30,41,59,0.8)',
-                }}
-              >
-                <div className="font-bold text-xs" style={{ color: 'var(--cp-text)' }}>Rajesh Sharma</div>
-                <div className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--cp-text-muted)' }}>9123456780</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Footer Security Badges */}

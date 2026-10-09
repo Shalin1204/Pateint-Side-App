@@ -15,13 +15,19 @@ export async function fetchCoordinationCards(patientId: string): Promise<Coordin
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching coordination cards:', error);
+      console.error('[Supabase coordination_card SELECT error]:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        patientId,
+      });
       return [];
     }
 
     return (data as DbCoordinationCard[]).map(mapCoordinationCard);
   } catch (err) {
-    console.error('Exception fetching coordination cards:', err);
+    console.error('[Supabase coordination_card SELECT exception]:', err);
     return [];
   }
 }
@@ -30,7 +36,10 @@ export async function createCoordinationCard(
   card: Omit<CoordinationCard, 'id' | 'createdAt' | 'status'> & { status?: CoordinationCardStatus }
 ): Promise<CoordinationCard | null> {
   const supabase = getSupabaseClient();
-  if (!supabase) return null;
+  if (!supabase) {
+    console.error('[Supabase createCoordinationCard]: Supabase client not initialized');
+    return null;
+  }
 
   try {
     const payload: Partial<DbCoordinationCard> = {
@@ -51,13 +60,19 @@ export async function createCoordinationCard(
       .single();
 
     if (error || !data) {
-      console.error('Error creating coordination card:', error);
+      console.error('[Supabase coordination_card INSERT error]:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        payload,
+      });
       return null;
     }
 
     return mapCoordinationCard(data as DbCoordinationCard);
   } catch (err) {
-    console.error('Exception creating coordination card:', err);
+    console.error('[Supabase coordination_card INSERT exception]:', err);
     return null;
   }
 }
@@ -82,9 +97,21 @@ export async function updateCoordinationCardStatus(
       .update(payload)
       .eq('id', id);
 
-    return !error;
+    if (error) {
+      console.error('[Supabase coordination_card UPDATE error]:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        id,
+        payload,
+      });
+      return false;
+    }
+
+    return true;
   } catch (err) {
-    console.error('Exception updating coordination card:', err);
+    console.error('[Supabase coordination_card UPDATE exception]:', err);
     return false;
   }
 }

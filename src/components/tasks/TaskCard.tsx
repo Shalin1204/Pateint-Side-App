@@ -30,6 +30,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
   const [showOriginal, setShowOriginal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [translation, setTranslation] = useState<{ title: string; instruction: string } | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string>(item.effective_status);
+
+  useEffect(() => {
+    setCurrentStatus(item.effective_status);
+  }, [item.effective_status]);
 
   useEffect(() => {
     let isMounted = true;
@@ -49,24 +54,39 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
   const displayTitle = hasVerifiedTranslation ? translation!.title : item.title;
   const displayInstruction = hasVerifiedTranslation ? translation!.instruction : item.original_text;
 
-  const isCompleted = item.effective_status === 'completed';
-  const isOverdue = item.effective_status === 'overdue';
+  const isCompleted = currentStatus === 'completed';
+  const isOverdue = currentStatus === 'overdue';
   const isLight = theme === 'light';
 
   const handleToggleDone = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!patientContext.canMarkDone || isSubmitting) return;
+
+    // 1. INSTANT optimistic visual state change
+    const prevStatus = currentStatus;
+    const nextStatus = prevStatus === 'completed' ? 'pending' : 'completed';
+    setCurrentStatus(nextStatus);
     setIsSubmitting(true);
-    const res = await dataService.markItemDone(item.id, patientContext);
-    setIsSubmitting(false);
-    if (res.success) {
-      notifySuccess(
-        isCompleted ? 'Marked task as pending.' : 'Marked task as completed.',
-        'Care Plan Task'
-      );
-      refreshData();
-    } else {
-      notifyError(res.error || 'Failed to update task status.', 'Task Update Failed');
+
+    notifySuccess(
+      nextStatus === 'completed' ? 'Marked task as completed.' : 'Marked task as pending.',
+      'Care Plan Task'
+    );
+
+    try {
+      const res = await dataService.markItemDone(item.id, patientContext);
+      setIsSubmitting(false);
+      if (res.success) {
+        refreshData();
+      } else {
+        // Revert on error
+        setCurrentStatus(prevStatus);
+        notifyError(res.error || 'Failed to update task status.', 'Task Update Failed');
+      }
+    } catch (err) {
+      setIsSubmitting(false);
+      setCurrentStatus(prevStatus);
+      notifyError('Failed to update task status.', 'Task Update Failed');
     }
   };
 
@@ -102,7 +122,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ item, onOpenDetails }) => {
 
   /* ── Status chip ── */
   const renderStatusChip = () => {
-    switch (item.effective_status) {
+    switch (currentStatus) {
       case 'completed':
         return (
           <span

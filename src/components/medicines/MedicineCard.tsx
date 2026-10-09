@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Medication, AdherenceLog } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
@@ -18,26 +18,41 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFullInstruction, setShowFullInstruction] = useState(false);
 
+  const [localAdherenceStatus, setLocalAdherenceStatus] = useState<'taken' | 'not_taken' | undefined>(adherenceLog?.status);
+
+  useEffect(() => {
+    setLocalAdherenceStatus(adherenceLog?.status);
+  }, [adherenceLog?.status]);
+
   const missingFallback = 'Needs Review';
-  const isTaken = adherenceLog?.status === 'taken';
-  const isNotTaken = adherenceLog?.status === 'not_taken';
+  const isTaken = localAdherenceStatus === 'taken';
+  const isNotTaken = localAdherenceStatus === 'not_taken';
   const isLight = theme === 'light';
 
   const handleTake = async () => {
+    // Instant 0ms visual state change
+    const prev = localAdherenceStatus;
+    setLocalAdherenceStatus('taken');
+    notifySuccess(`Recorded dose of ${medication.drug_name} as Taken.`, 'Medication Adherence');
+
     const res = await dataService.recordAdherence(medication.id, 'taken', patientContext);
     if (res.success) {
-      notifySuccess(`Recorded dose of ${medication.drug_name} as Taken.`, 'Medication Adherence');
       refreshData();
     } else {
+      setLocalAdherenceStatus(prev);
       notifyError(res.error || 'Failed to save medication adherence log.', 'Save Failed');
     }
   };
 
   const handleConfirmNotTaken = async () => {
-    const res = await dataService.recordAdherence(medication.id, 'not_taken', patientContext);
     setShowConfirmModal(false);
+    // Instant 0ms visual state change
+    const prev = localAdherenceStatus;
+    setLocalAdherenceStatus('not_taken');
+    notifySuccess(`Recorded dose of ${medication.drug_name} as Not Taken.`, 'Medication Adherence');
+
+    const res = await dataService.recordAdherence(medication.id, 'not_taken', patientContext);
     if (res.success) {
-      notifySuccess(`Recorded dose of ${medication.drug_name} as Not Taken.`, 'Medication Adherence');
       refreshData();
 
       // Create a coordination card alert in the DB so the care team is notified
@@ -51,9 +66,10 @@ export const MedicineCard: React.FC<MedicineCardProps> = ({ medication, adherenc
           careTeamNotes: undefined,
         });
       } catch (err) {
-        console.warn('Failed to create coordination card for not-taken medication:', err);
+        console.error('Failed to create coordination card for not-taken medication:', err);
       }
     } else {
+      setLocalAdherenceStatus(prev);
       notifyError(res.error || 'Failed to save medication adherence log.', 'Save Failed');
     }
   };

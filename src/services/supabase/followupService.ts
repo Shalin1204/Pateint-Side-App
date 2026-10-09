@@ -68,15 +68,23 @@ export async function patientMarkFollowupDone(
       return { success: true, item: updated };
     }
 
+    console.warn('[Supabase patient_mark_followup_done RPC not available, falling back to direct table update]:', rpcErr.message);
+
     // 2. Direct table fallback if RPC is not registered in current environment
     const now = new Date().toISOString();
-    const { data: existing } = await supabase
+    const { data: existing, error: findErr } = await supabase
       .from('followup_item')
       .select('*')
       .eq('id', itemId)
       .single();
 
-    if (!existing) {
+    if (findErr || !existing) {
+      console.error('[Supabase followup_item find error]:', {
+        message: findErr?.message,
+        details: findErr?.details,
+        code: findErr?.code,
+        itemId,
+      });
       return { success: false, error: 'Item not found' };
     }
 
@@ -97,11 +105,19 @@ export async function patientMarkFollowupDone(
       .single();
 
     if (updateErr || !data) {
+      console.error('[Supabase followup_item UPDATE error]:', {
+        message: updateErr?.message,
+        details: updateErr?.details,
+        code: updateErr?.code,
+        itemId,
+        nextStatus,
+      });
       return { success: false, error: updateErr?.message || 'Failed to update item' };
     }
 
     return { success: true, item: mapFollowupItem(data as DbFollowupItem) };
   } catch (err: unknown) {
+    console.error('[Supabase followup_item mark exception]:', err);
     const msg = err instanceof Error ? err.message : 'Unknown completion error';
     return { success: false, error: msg };
   }

@@ -62,16 +62,28 @@ export const TaskDetailSheet: React.FC<TaskDetailSheetProps> = ({ itemId, onClos
 
   const handleToggleDone = async () => {
     if (!patientContext.canMarkDone) return;
-    const res = await dataService.markItemDone(item.id, patientContext);
-    if (res.success) {
-      notifySuccess(
-        isCompleted ? 'Marked task as pending.' : 'Marked task as completed.',
-        'Care Plan Task'
-      );
-      if (res.item) setItem(res.item);
-      refreshData();
-    } else {
-      notifyError(res.error || 'Failed to update task status.', 'Task Update Failed');
+    const nextStatus = isCompleted ? 'pending' : 'completed';
+    
+    // 1. Instant optimistic update
+    setItem((prev) => prev ? { ...prev, effective_status: nextStatus } : prev);
+    notifySuccess(
+      nextStatus === 'completed' ? 'Marked task as completed.' : 'Marked task as pending.',
+      'Care Plan Task'
+    );
+
+    try {
+      const res = await dataService.markItemDone(item.id, patientContext);
+      if (res.success) {
+        if (res.item) setItem(res.item);
+        refreshData();
+      } else {
+        // Revert on error
+        setItem((prev) => prev ? { ...prev, effective_status: isCompleted ? 'completed' : 'pending' } : prev);
+        notifyError(res.error || 'Failed to update task status.', 'Task Update Failed');
+      }
+    } catch (err) {
+      setItem((prev) => prev ? { ...prev, effective_status: isCompleted ? 'completed' : 'pending' } : prev);
+      notifyError('Failed to update task status.', 'Task Update Failed');
     }
   };
 

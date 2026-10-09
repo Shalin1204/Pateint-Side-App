@@ -63,12 +63,19 @@ export async function recordMedicationAdherence(
       .single();
 
     if (error || !data) {
-      console.error('Error saving adherence log:', error);
+      console.error('[Supabase adherence_log UPSERT error]:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        payload,
+      });
       return { success: false, error: error?.message || 'Failed to save adherence' };
     }
 
     return { success: true, log: mapAdherenceLog(data as DbAdherenceLog) };
   } catch (err: unknown) {
+    console.error('[Supabase adherence_log exception]:', err);
     const msg = err instanceof Error ? err.message : 'Adherence record error';
     return { success: false, error: msg };
   }
