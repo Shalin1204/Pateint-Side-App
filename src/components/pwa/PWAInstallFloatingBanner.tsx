@@ -11,18 +11,30 @@ export const PWAInstallFloatingBanner: React.FC = () => {
   const [showInstructions, setShowInstructions] = useState(false);
 
   useEffect(() => {
-    // Only show if not installed and not dismissed in this session
     if (typeof window !== 'undefined') {
+      const isStandalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+      if (isStandalone) return;
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const isDirectInstallUrl = urlParams.get('install') === 'true' || window.location.hash.includes('install');
+
       const isDismissed = sessionStorage.getItem(DISMISS_KEY) === 'true';
-      if (!isDismissed && !isInstalled) {
-        // Delay slightly for smooth entrance after page load
+      if (!isDismissed || isDirectInstallUrl) {
+        // Show banner immediately for direct install or after short delay
+        const delay = isDirectInstallUrl ? 100 : 800;
         const timer = setTimeout(() => {
           setDismissed(false);
-        }, 1200);
+          if (isDirectInstallUrl && isInstallable) {
+            install();
+          }
+        }, delay);
         return () => clearTimeout(timer);
       }
     }
-  }, [isInstalled]);
+  }, [isInstalled, isInstallable, install]);
 
   if (isInstalled || dismissed) {
     return null;
